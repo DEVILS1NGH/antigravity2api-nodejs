@@ -7,16 +7,16 @@ import { log } from '../utils/logger.js';
 import { generateSalt } from '../utils/idGenerator.js';
 
 /**
- * 账号数据文件结构：
+ * Account data file structure:
  * {
- *   "salt": "随机盐值，用于生成安全的tokenId",
+ *   "salt": "Random salt value used to generate secure tokenIds",
  *   "tokens": [...]
  * }
  */
 
 /**
- * 负责 token 文件的读写与简单缓存
- * 不关心业务字段，只处理 JSON 数组的加载和保存
+ * Responsible for reading, writing, and caching the token file
+ * Agnostic to business fields; only handles loading and saving the JSON array
  */
 class TokenStore {
   constructor(filePath = path.join(getDataDir(), 'accounts.json')) {
@@ -26,7 +26,7 @@ class TokenStore {
     this._cacheTTL = FILE_CACHE_TTL;
     this._salt = null;
     this._lastReadOk = true;
-    // 写入锁：防止并发写入导致数据损坏
+    // Write lock: prevents concurrent writes from corrupting data
     this._writeQueue = Promise.resolve();
     this._pendingWrite = null;
   }
@@ -36,19 +36,19 @@ class TokenStore {
     try {
       await fs.mkdir(dir, { recursive: true });
     } catch (e) {
-      // 目录已存在等情况忽略
+      // Ignore errors such as directory already existing
     }
 
     try {
       await fs.access(this.filePath);
     } catch (e) {
-      // 文件不存在时创建带盐值的空结构
+      // Create an empty structure with a salt if the file does not exist
       const initialData = {
         salt: generateSalt(),
         tokens: []
       };
       await fs.writeFile(this.filePath, JSON.stringify(initialData, null, 2), 'utf8');
-      log.info('✓ 已创建账号配置文件（含安全盐值）');
+      log.info('✓ Created account config file (with security salt)');
     }
   }
 
@@ -97,8 +97,8 @@ class TokenStore {
   }
 
   /**
-   * 获取盐值（用于生成安全的 tokenId）
-   * @returns {Promise<string>} 盐值
+   * Get the salt value (used to generate secure tokenIds)
+   * @returns {Promise<string>} Salt value
    */
   async getSalt() {
     if (this._salt) return this._salt;
@@ -108,31 +108,31 @@ class TokenStore {
       const data = await fs.readFile(this.filePath, 'utf8');
       const parsed = JSON.parse(data || '{}');
       
-      // 兼容旧格式：如果是数组，迁移到新格式
+      // Backward compatibility: if it's an array, migrate to the new format
       if (Array.isArray(parsed)) {
         const newData = {
           salt: generateSalt(),
           tokens: parsed
         };
         await fs.writeFile(this.filePath, JSON.stringify(newData, null, 2), 'utf8');
-        log.info('✓ 已迁移账号配置文件到新格式（添加安全盐值）');
+        log.info('✓ Migrated account config file to new format (added security salt)');
         this._salt = newData.salt;
         return this._salt;
       }
       
-      // 如果没有盐值，生成一个
+      // Generate a salt if missing
       if (!parsed.salt) {
         parsed.salt = generateSalt();
         parsed.tokens = parsed.tokens || [];
         await fs.writeFile(this.filePath, JSON.stringify(parsed, null, 2), 'utf8');
-        log.info('✓ 已为账号配置文件添加安全盐值');
+        log.info('✓ Added security salt to account config file');
       }
       
       this._salt = parsed.salt;
       return this._salt;
     } catch (error) {
-      log.error('读取盐值失败:', error.message);
-      // 生成临时盐值
+      log.error('Failed to read salt:', error.message);
+      // Generate a temporary salt
       this._salt = generateSalt();
       return this._salt;
     }
@@ -145,16 +145,16 @@ class TokenStore {
   }
 
   /**
-   * 过滤无效 token 条目
-   * @param {Array} tokens - 原始 token 数组
-   * @returns {Array} 过滤后的有效 token 数组
+   * Filter out invalid token entries
+   * @param {Array} tokens - Raw token array
+   * @returns {Array} Filtered array of valid tokens
    * @private
    */
   _filterValidTokens(tokens) {
     return tokens.filter(t => {
       if (!t || typeof t !== 'object') return false;
       if (!t.refresh_token && !t.access_token) {
-        log.warn('跳过无效 token 条目（缺少 refresh_token 和 access_token）');
+        log.warn('Skipping invalid token entry (missing both refresh_token and access_token)');
         return false;
       }
       return true;
@@ -162,7 +162,7 @@ class TokenStore {
   }
 
   /**
-   * 读取全部 token（包含禁用的），带简单内存缓存
+   * Read all tokens (including disabled ones) with simple in-memory caching
    * @returns {Promise<Array<object>>}
    */
   async readAll() {
@@ -175,7 +175,7 @@ class TokenStore {
       const data = await fs.readFile(this.filePath, 'utf8');
       const parsed = JSON.parse(data || '{}');
       
-      // 兼容旧格式：如果是数组，直接使用
+      // Backward compatibility: if it's an array, use it directly
       if (Array.isArray(parsed)) {
         this._cache = this._filterValidTokens(parsed);
         this._lastReadOk = true;
@@ -183,7 +183,7 @@ class TokenStore {
         this._cache = this._filterValidTokens(parsed.tokens);
         this._lastReadOk = true;
       } else {
-        log.warn('账号配置文件格式异常，保留缓存并跳过本次读取');
+        log.warn('Account config file format is invalid, keeping cache and skipping this read');
         this._lastReadOk = false;
         if (this._cache) {
           this._cacheTime = Date.now();
@@ -192,7 +192,7 @@ class TokenStore {
         return [];
       }
     } catch (error) {
-      log.error('读取账号配置文件失败:', error.message);
+      log.error('Failed to read account config file:', error.message);
       this._lastReadOk = false;
       if (this._cache) {
         this._cacheTime = Date.now();
@@ -205,18 +205,18 @@ class TokenStore {
   }
 
   /**
-   * 覆盖写入全部 token，更新缓存
-   * 使用写入队列确保并发安全
+   * Overwrite all tokens and update cache
+   * Uses a write queue to ensure concurrency safety
    * @param {Array<object>} tokens
    */
   async writeAll(tokens) {
     const normalized = Array.isArray(tokens) ? tokens : [];
     
-    // 使用队列确保写入顺序，避免并发写入导致数据损坏
+    // Use a queue to serialize writes and prevent data corruption from concurrent writes
     const writeOperation = async () => {
       await this._ensureFileExists();
       
-      // 确保盐值已加载
+      // Ensure salt is loaded
       const salt = await this.getSalt();
       
       try {
@@ -229,32 +229,32 @@ class TokenStore {
         this._cacheTime = Date.now();
         this._lastReadOk = true;
       } catch (error) {
-        log.error('保存账号配置文件失败:', error.message);
+        log.error('Failed to save account config file:', error.message);
         throw error;
       }
     };
     
-    // 将写入操作加入队列
+    // Enqueue the write operation
     this._writeQueue = this._writeQueue
       .then(writeOperation)
       .catch(error => {
-        // 捕获错误但不中断队列
-        log.error('写入队列操作失败:', error.message);
+        // Catch errors without breaking the queue
+        log.error('Write queue operation failed:', error.message);
       });
     
     return this._writeQueue;
   }
 
   /**
-   * 根据内存中的启用 token 列表，将对应记录合并回文件
-   * - 仅按 refresh_token 匹配并更新已有记录
-   * - 未出现在 activeTokens 中的记录（例如已禁用账号）保持不变
-   * 使用防抖机制合并频繁的写入请求
-   * @param {Array<object>} activeTokens - 内存中的启用 token 列表（可能包含 sessionId）
-   * @param {object|null} tokenToUpdate - 如果只需要单个更新，可传入该 token 以减少遍历
+   * Merge in-memory enabled tokens back into the file
+   * - Matches and updates existing records by refresh_token only
+   * - Records not present in activeTokens (e.g., disabled accounts) remain unchanged
+   * Uses debouncing to coalesce frequent write requests
+   * @param {Array<object>} activeTokens - In-memory enabled tokens list (may include sessionId)
+   * @param {object|null} tokenToUpdate - Optional single token to update to reduce iteration
    */
   async mergeActiveTokens(activeTokens, tokenToUpdate = null) {
-    // 使用写入队列来确保并发安全
+    // Use write queue to ensure concurrency safety
     const mergeOperation = async () => {
       const allTokens = [...await this.readAll()];
       const hasActiveTokens = Array.isArray(activeTokens) && activeTokens.length > 0;
@@ -269,7 +269,7 @@ class TokenStore {
       };
 
       if (!this._lastReadOk && allTokens.length === 0) {
-        log.warn('账号配置文件读取失败，跳过写入以避免覆盖');
+        log.warn('Account config file read failed, skipping write to avoid overwriting');
         return null;
       }
 
@@ -288,7 +288,7 @@ class TokenStore {
       return allTokens;
     };
 
-    // 在队列中执行合并后写入
+    // Execute merge and write in the queue
     this._writeQueue = this._writeQueue
       .then(async () => {
         const mergedTokens = await mergeOperation();
@@ -306,12 +306,12 @@ class TokenStore {
           this._cacheTime = Date.now();
           this._lastReadOk = true;
         } catch (error) {
-          log.error('保存账号配置文件失败:', error.message);
-          // 不抛出错误，避免中断队列
+          log.error('Failed to save account config file:', error.message);
+          // Do not throw to avoid breaking the queue
         }
       })
       .catch(error => {
-        log.error('合并写入队列操作失败:', error.message);
+        log.error('Merge write queue operation failed:', error.message);
       });
 
     return this._writeQueue;

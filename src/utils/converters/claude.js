@@ -1,4 +1,4 @@
-// Claude 格式转换工具
+// Claude format converter utilities
 import config from '../../config/config.js';
 import { convertClaudeToolsToAntigravity } from '../toolConverter.js';
 import {
@@ -75,9 +75,9 @@ function handleClaudeAssistantMessage(message, antigravityMessages, enableThinki
   
   if (enableThinking) {
     const signature = messageSignature || reasoningSignature || toolSignature;
-    // 只有在有签名时才添加 thought part，避免 API 报错
+    // Only add thought part when a signature is available to avoid API errors
     if (signature) {
-      // 优先使用消息自带的思考内容，否则使用缓存的内容（与签名绑定）
+      // Prefer thinking content from the message itself; otherwise use cached content (bound to signature)
       let reasoningText = ' ';
       if (thinkingContent.length > 0) {
         reasoningText = thinkingContent;
@@ -140,8 +140,8 @@ function claudeMessageToAntigravity(claudeMessages, enableThinking, actualModelN
 export function generateClaudeRequestBody(claudeMessages, modelName, parameters, claudeTools, systemPrompt, token) {
   const enableThinking = isEnableThinking(modelName);
   const actualModelName = modelMapping(modelName);
-  // 直接传递用户的系统提示词，让 buildSystemInstruction 处理所有合并逻辑
-  // 包括反重力官方提示词、萌萌提示词和用户提示词的位置配置
+  // Pass the user's system prompt directly and let buildSystemInstruction handle all merge logic,
+  // including position configuration for official, proxy, and user prompts
 
   const tools = convertClaudeToolsToAntigravity(claudeTools, token.sessionId, actualModelName);
   const hasTools = tools && tools.length > 0;

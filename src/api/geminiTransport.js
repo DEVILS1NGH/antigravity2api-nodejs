@@ -1,11 +1,11 @@
 import requesterManager from '../utils/requesterManager.js';
 
 /**
- * 统一流式 SSE 请求（TLS 指纹 / axios 均通过 requesterManager 路由）
+ * Unified streaming SSE request (both TLS fingerprint and axios route through requesterManager)
  *
- * streamResponse 实现 onStart/onData/onEnd/onError 链式接口
- * （TLS 路径返回 src/requester.js StreamResponse，
- *  axios 路径返回 requesterManager 内部的 AxiosStreamResponse）
+ * streamResponse implements the chainable onStart/onData/onEnd/onError interface
+ * (TLS path returns src/requester.js StreamResponse,
+ *  axios path returns AxiosStreamResponse inside requesterManager)
  */
 export async function runSseStream({ url, method = 'POST', headers, body, processor, onErrorChunk } = {}) {
   const streamResponse = await requesterManager.fetchStream(url, { method, headers, body });
@@ -39,7 +39,7 @@ export async function runSseStream({ url, method = 'POST', headers, body, proces
 }
 
 /**
- * 发送 JSON 请求并解析响应（非流式）
+ * Send a JSON request and parse the response (non-streaming)
  *
  * @param {object} options
  * @param {string}   options.url
@@ -48,7 +48,7 @@ export async function runSseStream({ url, method = 'POST', headers, body, proces
  * @param {string}   [options.dumpId]
  * @param {Function} [options.dumpFinalRawResponse]
  * @param {string}   [options.rawFormat='json']
- * @returns {Promise<any>} 解析后的 JSON 数据
+ * @returns {Promise<any>} Parsed JSON data
  */
 export async function postJsonAndParse({
   url,

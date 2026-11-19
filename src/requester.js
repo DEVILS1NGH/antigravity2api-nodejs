@@ -7,10 +7,10 @@ import zlib from 'zlib';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// 检测是否在 pkg 打包环境中运行
+// Detect whether running inside a pkg-bundled executable
 const isPkg = typeof process.pkg !== 'undefined';
 
-// gzip 解压辅助函数
+// gzip decompression helper
 function decompressGzip(buffer) {
   return new Promise((resolve, reject) => {
     zlib.gunzip(buffer, (err, result) => {
@@ -20,7 +20,7 @@ function decompressGzip(buffer) {
   });
 }
 
-// brotli 解压辅助函数
+// brotli decompression helper
 function decompressBrotli(buffer) {
   return new Promise((resolve, reject) => {
     zlib.brotliDecompress(buffer, (err, result) => {
@@ -30,12 +30,12 @@ function decompressBrotli(buffer) {
   });
 }
 
-// deflate 解压辅助函数
+// deflate decompression helper
 function decompressDeflate(buffer) {
   return new Promise((resolve, reject) => {
     zlib.inflate(buffer, (err, result) => {
       if (err) {
-        // 尝试 raw deflate
+        // Fallback to raw deflate
         zlib.inflateRaw(buffer, (err2, result2) => {
           if (err2) reject(err);
           else resolve(result2);
@@ -60,20 +60,20 @@ class FingerprintRequester {
   }
 
   _detectBinDir() {
-    // pkg 环境下优先使用可执行文件旁边的 bin 目录
+    // Under pkg, prefer the bin directory next to the executable
     if (isPkg) {
       const exeDir = dirname(process.execPath);
       const exeBinDir = join(exeDir, 'bin');
       if (existsSync(exeBinDir)) {
         return exeBinDir;
       }
-      // 其次使用当前工作目录的 bin 目录
+      // Next, check the bin directory in the current working directory
       const cwdBinDir = join(process.cwd(), 'bin');
       if (existsSync(cwdBinDir)) {
         return cwdBinDir;
       }
     }
-    // 开发环境
+    // Development environment
     return join(__dirname, 'bin');
   }
 
@@ -105,12 +105,12 @@ class FingerprintRequester {
       throw new Error(`Binary not found: ${binaryPath}`);
     }
 
-    // 确保二进制文件有执行权限（非 Windows 平台）
+    // Ensure the binary has execute permissions (non-Windows platforms)
     if (platform() !== 'win32') {
       try {
         chmodSync(binaryPath, 0o755);
       } catch (e) {
-        // 忽略权限修改失败（可能已有权限或无权修改）
+        // Ignore chmod failure (may already be executable or lack permission)
       }
     }
 
@@ -129,7 +129,7 @@ class FingerprintRequester {
       onDownloadProgress,
       validateStatus = (status) => status >= 200 && status < 300,
       signal,
-      skipGzipDecompress = false, // 是否跳过 gzip 解压（流式响应应设为 true）
+      skipGzipDecompress = false, // Whether to skip gzip decompression (should be true for streaming responses)
     } = config;
 
     if (!url) {
@@ -171,7 +171,7 @@ class FingerprintRequester {
       let responseHeaders = {};
       let responseStatus = 200;
       let responseStatusText = 'OK';
-      let headerBuffer = null; // 使用 Buffer 而非字符串，保留二进制数据完整性
+      let headerBuffer = null; // Use Buffer instead of string to preserve binary data integrity
       let bodyChunks = [];
       let totalLoaded = 0;
       let stderrData = '';
@@ -198,21 +198,21 @@ class FingerprintRequester {
 
       proc.stdout.on('data', (chunk) => {
         if (!headersParsed) {
-          // 使用 Buffer 操作保留二进制数据完整性
+          // Use Buffer operations to preserve binary data integrity
           if (!headerBuffer) {
             headerBuffer = chunk;
           } else {
             headerBuffer = Buffer.concat([headerBuffer, chunk]);
           }
 
-          // 使用 Buffer.indexOf 查找 \r\n\r\n 的位置
+          // Use Buffer.indexOf to locate \r\n\r\n
           const separator = Buffer.from('\r\n\r\n');
           const headerEndIndex = headerBuffer.indexOf(separator);
 
           if (headerEndIndex !== -1) {
-            // Parse headers (header 部分是纯文本，可以安全转换)
+            // Parse headers (header section is plain text and safe to decode)
             const headerPart = headerBuffer.slice(0, headerEndIndex).toString('utf8');
-            const bodyPart = headerBuffer.slice(headerEndIndex + 4); // 保持为 Buffer
+            const bodyPart = headerBuffer.slice(headerEndIndex + 4); // Keep as Buffer
 
             const lines = headerPart.split('\r\n');
             const statusMatch = lines[0].match(/HTTP\/[\d.]+ (\d+) (.+)/);
@@ -225,14 +225,14 @@ class FingerprintRequester {
             }
 
             headersParsed = true;
-            headerBuffer = null; // 释放内存
+            headerBuffer = null; // Release memory
 
             // Clear timeout for streaming responses
             clearTimeout(timeoutId);
 
             // Process body part after headers
             if (bodyPart.length > 0) {
-              bodyChunks.push(bodyPart); // 直接 push Buffer，不做转换
+              bodyChunks.push(bodyPart); // Push Buffer directly without conversion
               totalLoaded += bodyPart.length;
               if (onDownloadProgress) {
                 onDownloadProgress({
@@ -247,7 +247,7 @@ class FingerprintRequester {
           }
         } else {
           // Headers already parsed, process body chunks
-          bodyChunks.push(chunk); // 保持为 Buffer
+          bodyChunks.push(chunk); // Keep as Buffer
           totalLoaded += chunk.length;
           if (onDownloadProgress) {
             onDownloadProgress({
@@ -289,16 +289,16 @@ class FingerprintRequester {
         try {
           let bodyBuffer = Buffer.concat(bodyChunks);
           
-          // 检查是否需要解压（gzip / br / deflate）
+          // Check if decompression is needed (gzip / br / deflate)
           const contentEncoding = (responseHeaders['content-encoding'] || '').toLowerCase();
           if (!skipGzipDecompress && contentEncoding) {
             const isGzipData = bodyBuffer.length >= 2 && bodyBuffer[0] === 0x1f && bodyBuffer[1] === 0x8b;
             if (contentEncoding.includes('gzip') && isGzipData) {
               bodyBuffer = await decompressGzip(bodyBuffer);
             } else if (contentEncoding.includes('br')) {
-              try { bodyBuffer = await decompressBrotli(bodyBuffer); } catch { /* 解压失败保留原始数据 */ }
+              try { bodyBuffer = await decompressBrotli(bodyBuffer); } catch { /* Keep raw data if decompression fails */ }
             } else if (contentEncoding.includes('deflate')) {
-              try { bodyBuffer = await decompressDeflate(bodyBuffer); } catch { /* 解压失败保留原始数据 */ }
+              try { bodyBuffer = await decompressDeflate(bodyBuffer); } catch { /* Keep raw data if decompression fails */ }
             }
           }
           
@@ -387,15 +387,15 @@ class FingerprintRequester {
     }
     return this.request({
       ...config,
-      skipGzipDecompress: true, // 流式响应不需要 gzip 解压
+      skipGzipDecompress: true, // Streaming responses do not need gzip decompression
       onDownloadProgress: onProgress || (() => {}),
     });
   }
 
-  // ==================== 兼容 AntigravityRequester 的接口 ====================
+  // ==================== AntigravityRequester-compatible interface ====================
 
   /**
-   * 从 AntigravityRequester 风格的 options 构建请求配置
+   * Build request config from AntigravityRequester-style options
    */
   _buildConfigFromOptions(url, options = {}, isStream = false) {
     return {
@@ -410,15 +410,15 @@ class FingerprintRequester {
   }
 
   /**
-   * 兼容 AntigravityRequester.antigravity_fetch 的接口
-   * 返回一个类似 fetch Response 的对象
+   * Compatible with AntigravityRequester.antigravity_fetch
+   * Returns a fetch Response-like object
    */
   async antigravity_fetch(url, options = {}) {
     const config = this._buildConfigFromOptions(url, options, false);
 
     const response = await this.request(config);
     
-    // 返回兼容 AntigravityRequester 的响应对象
+    // Return a response object compatible with AntigravityRequester
     return {
       ok: response.status >= 200 && response.status < 300,
       status: response.status,
@@ -440,8 +440,8 @@ class FingerprintRequester {
   }
 
   /**
-   * 兼容 AntigravityRequester.antigravity_fetchStream 的接口
-   * 返回一个 StreamResponse 对象
+   * Compatible with AntigravityRequester.antigravity_fetchStream
+   * Returns a StreamResponse object
    */
   antigravity_fetchStream(url, options = {}) {
     const streamResponse = new StreamResponse();
@@ -449,7 +449,7 @@ class FingerprintRequester {
     const config = {
       ...this._buildConfigFromOptions(url, options, true),
       onDownloadProgress: ({ chunk, status, headers }) => {
-        // 首次收到数据时更新 headers
+        // Update headers upon receiving the first data chunk
         if (!streamResponse._started) {
           streamResponse._started = true;
           streamResponse.status = status;
@@ -467,13 +467,13 @@ class FingerprintRequester {
       },
       validateStatus: (status) => {
         streamResponse.status = status;
-        return true; // 不在这里抛错，让流式处理继续
+        return true; // Do not throw here so streaming can continue
       },
     };
 
     this.request(config)
       .then((response) => {
-        // 请求完成后设置最终 headers
+        // Set final headers after the request completes
         streamResponse.headers = new Map(Object.entries(response.headers));
         streamResponse._ended = true;
         streamResponse._finalText = streamResponse.chunks.join('');
@@ -507,7 +507,7 @@ class FingerprintRequester {
 }
 
 /**
- * 流式响应对象，兼容 AntigravityRequester 的 StreamResponse
+ * Streaming response object compatible with AntigravityRequester's StreamResponse
  */
 class StreamResponse {
   constructor() {

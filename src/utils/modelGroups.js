@@ -1,30 +1,43 @@
 /**
- * 模型分组工具模块
- * 统一管理模型到组的映射逻辑，供 quota_manager 和 token_cooldown_manager 共用
+ * Model Grouping Utility
+ * Centralizes model-to-group mapping logic shared by quota_manager and token_cooldown_manager
  */
 
 /**
- * 支持的模型组列表
- * - claude: Claude 系列模型
- * - gemini: Gemini 系列模型
- * - banana: gemini-3.1-flash-image 图片生成模型
- * - other: 其他模型
+ * Supported model groups
+ * - claude: Claude model family
+ * - gemini: Gemini model family
+ * - banana: Gemini Image / Nano Banana image generation models
+ * - other: Other models
  */
 export const MODEL_GROUPS = ['claude', 'gemini', 'banana', 'other'];
 
 /**
- * 获取模型所属的组 key
- * @param {string} modelId - 模型 ID
- * @returns {string} 组 key (claude | gemini | banana | other)
+ * Get the group key for a given model ID
+ * @param {string} modelId - Model ID
+ * @returns {string} Group key (claude | gemini | banana | other)
  */
 export function getGroupKey(modelId) {
   if (!modelId) return 'other';
   const lower = modelId.toLowerCase();
 
   if (lower.includes('claude')) return 'claude';
-  // banana 必须在 gemini 之前检查，因为它包含 'gemini' 字符串
-  if (lower.includes('gemini-3.1-flash-image')) return 'banana';
-  if (lower.includes('gemini') || lower.includes('publishers/google/')) return 'gemini';
+  // Check banana (image generation) before gemini because model IDs contain 'gemini'
+  if (
+    lower.includes('nano-banana') ||
+    (lower.includes('gemini') && lower.includes('-image')) ||
+    lower.includes('imagen')
+  ) {
+    return 'banana';
+  }
+  if (
+    lower.includes('gemini') ||
+    lower.includes('publishers/google/') ||
+    lower.includes('deep-research-') ||
+    lower.includes('antigravity-')
+  ) {
+    return 'gemini';
+  }
 
   return 'other';
 }

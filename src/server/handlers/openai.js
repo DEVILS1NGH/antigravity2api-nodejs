@@ -1,6 +1,6 @@
 /**
- * OpenAI 格式处理器
- * 处理 /v1/chat/completions 请求，支持流式和非流式响应
+ * OpenAI format handler
+ * Handles /v1/chat/completions requests with streaming and non-streaming responses
  */
 
 import { generateAssistantResponse, generateAssistantResponseNoStream, getModelsWithQuotas } from '../../api/client.js';
@@ -26,9 +26,9 @@ import {
 } from '../stream.js';
 
 /**
- * 处理 OpenAI 格式的聊天请求
- * @param {Request} req - Express请求对象
- * @param {Response} res - Express响应对象
+ * Handle OpenAI-format chat requests
+ * @param {Request} req - Express request object
+ * @param {Response} res - Express response object
  */
 export const handleOpenAIRequest = async (req, res) => {
   const body = req.body || {};
@@ -61,7 +61,7 @@ export const handleOpenAIRequest = async (req, res) => {
     };
 
     if (!await applyTokenState(await tokenManager.getToken(model))) {
-      throw new Error('没有可用的token，请运行 npm run login 获取token');
+      throw new Error('No available tokens. Please run npm run login to obtain a token');
     }
 
     const refreshQuota = async () => {
@@ -70,7 +70,7 @@ export const handleOpenAIRequest = async (req, res) => {
       quotaManager.updateQuota(tokenId, quotas);
     };
 
-    // 创建 with429Retry 选项
+    // Build with429Retry options
     const createRetryOptions = (prefix) => ({
       loggerPrefix: prefix,
       onAttempt: () => tokenManager.recordRequest(token, model),
@@ -91,7 +91,7 @@ export const handleOpenAIRequest = async (req, res) => {
     if (stream) {
       setStreamHeaders(res);
 
-      // 启动心跳，防止 Cloudflare 超时断连
+      // Start heartbeat to prevent Cloudflare idle timeout disconnects
       const heartbeatTimer = createHeartbeat(res);
 
       try {
@@ -132,7 +132,7 @@ export const handleOpenAIRequest = async (req, res) => {
                   writeStreamData(res, createStreamChunk(id, created, model, delta));
                 } else if (data.type === 'tool_calls') {
                   hasToolCall = true;
-                  // 根据配置决定是否透传工具调用中的签名
+                  // Determine whether to pass through tool call signatures based on config
                   const toolCallsWithIndex = data.tool_calls.map((toolCall, index) => {
                     if (config.passSignatureToClient) {
                       return { index, ...toolCall };
@@ -165,11 +165,11 @@ export const handleOpenAIRequest = async (req, res) => {
           writeStreamData(res, buildOpenAIErrorPayload(error, statusCode));
           endStream(res);
         }
-        logger.error('生成响应失败:', error.message);
+        logger.error('Failed to generate response:', error.message);
         return;
       }
     } else if (config.fakeNonStream && !isImageModel) {
-      // 假非流模式：使用流式API获取数据，组装成非流式响应
+      // Fake non-stream mode: fetch via streaming API and assemble a non-streaming response
       req.setTimeout(0);
       res.setTimeout(0);
 
@@ -204,7 +204,7 @@ export const handleOpenAIRequest = async (req, res) => {
           createRetryOptions('chat.fake_no_stream ')
         );
 
-        // 构建非流式响应
+        // Build non-streaming response
         const message = { role: 'assistant' };
         if (reasoningContent) message.reasoning_content = reasoningContent;
         if (reasoningSignature && config.passSignatureToClient) message.thoughtSignature = reasoningSignature;
@@ -231,15 +231,15 @@ export const handleOpenAIRequest = async (req, res) => {
           stripToolCallSignature: !config.passSignatureToClient
         }));
       } catch (error) {
-        logger.error('假非流生成响应失败:', error.message);
+        logger.error('Fake non-stream response failed:', error.message);
         if (res.headersSent) return;
         const statusCode = error.statusCode || error.status || 500;
         return res.status(statusCode).json(buildOpenAIErrorPayload(error, statusCode));
       }
     } else {
-      // 非流式请求：设置较长超时，避免大模型响应超时
-      req.setTimeout(0); // 禁用请求超时
-      res.setTimeout(0); // 禁用响应超时
+      // Non-streaming request: disable timeouts to accommodate long LLM responses
+      req.setTimeout(0); // Disable request timeout
+      res.setTimeout(0); // Disable response timeout
 
       const { content, reasoningContent, reasoningSignature, toolCalls, usage } = await with429Retry(
         (attempt, shouldUseCredits) => {
@@ -252,14 +252,14 @@ export const handleOpenAIRequest = async (req, res) => {
         createRetryOptions('chat.no_stream ')
       );
 
-      // DeepSeek 格式：reasoning_content 在 content 之前
+      // DeepSeek format: reasoning_content precedes content
       const message = { role: 'assistant' };
       if (reasoningContent) message.reasoning_content = reasoningContent;
       if (reasoningSignature && config.passSignatureToClient) message.thoughtSignature = reasoningSignature;
       message.content = content;
 
       if (toolCalls.length > 0) {
-        // 根据配置决定是否透传工具调用中的签名
+        // Determine whether to pass through tool call signatures based on config
         if (config.passSignatureToClient) {
           message.tool_calls = toolCalls;
         } else {
@@ -267,7 +267,7 @@ export const handleOpenAIRequest = async (req, res) => {
         }
       }
 
-      // 使用预构建的响应对象，减少内存分配
+      // Use pre-built response helper to reduce memory allocations
       res.json(createOpenAIChatCompletionResponse({
         id,
         created,
@@ -282,7 +282,7 @@ export const handleOpenAIRequest = async (req, res) => {
       }));
     }
   } catch (error) {
-    logger.error('生成响应失败:', error.message);
+    logger.error('Failed to generate response:', error.message);
     if (res.headersSent) return;
     const statusCode = error.statusCode || error.status || 500;
     return res.status(statusCode).json(buildOpenAIErrorPayload(error, statusCode));

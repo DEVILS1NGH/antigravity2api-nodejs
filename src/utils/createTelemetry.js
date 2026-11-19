@@ -239,12 +239,12 @@ function resolveTelemetryProtoPath(explicitProtoPath) {
     }
   }
 
-  // 如果用户显式指定了路径（参数或环境变量），找不到就直接失败
+  // Fail immediately if the user explicitly specified a path (via argument or environment variable) and it was not found
   if (explicitProtoPath || envProtoPath) {
     return { protoPath: null, tried: candidates, hardFail: true };
   }
 
-  // 否则允许回退到内置的 proto schema（用于二进制/容器环境缺少文件时）
+  // Otherwise fall back to the embedded proto schema (for binary/container environments where the file is missing)
   return { protoPath: null, tried: candidates, hardFail: false };
 }
 

@@ -1,6 +1,6 @@
 /**
- * 统一的请求必填字段校验（不绑定具体响应格式）
- * 返回结构化结果，避免在各 handler 里重复写 if/return。
+ * Unified required-field validation for incoming chat requests (format-agnostic)
+ * Returns a structured result to avoid repeating if/return checks across handlers.
  */
 
 /**

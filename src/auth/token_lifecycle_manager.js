@@ -5,8 +5,8 @@ import { TokenError } from '../utils/errors.js';
 import requesterManager from '../utils/requesterManager.js';
 
 /**
- * Token 生命周期管理类
- * 负责 Token 的过期检查和刷新
+ * Token lifecycle manager class
+ * Responsible for token expiration checks and refreshing
  */
 class TokenLifecycleManager {
   constructor(store) {
@@ -14,9 +14,9 @@ class TokenLifecycleManager {
   }
 
   /**
-   * 检查 Token 是否过期
-   * @param {Object} token - Token 对象
-   * @returns {boolean} 是否过期
+   * Check whether a token is expired
+   * @param {Object} token - Token object
+   * @returns {boolean} Whether the token is expired
    */
   isExpired(token) {
     if (!token.timestamp || !token.expires_in) return true;
@@ -25,16 +25,16 @@ class TokenLifecycleManager {
   }
 
   /**
-   * 刷新单个 token
-   * @param {Object} token - Token 对象
-   * @param {string} tokenId - Token ID（用于日志）
-   * @param {boolean} silent - 是否静默模式（不打印日志）
-   * @returns {Promise<Object>} 刷新后的 token
-   * @throws {TokenError} 刷新失败时抛出异常
+   * Refresh a single token
+   * @param {Object} token - Token object
+   * @param {string} tokenId - Token ID (for logging)
+   * @param {boolean} silent - Whether to run in silent mode (suppress logs)
+   * @returns {Promise<Object>} Refreshed token
+   * @throws {TokenError} Throws when refresh fails
    */
   async refreshToken(token, tokenId, silent = false) {
     if (!silent) {
-      log.info(`正在刷新token: ${tokenId}`);
+      log.info(`Refreshing token: ${tokenId}`);
     }
 
     const body = new URLSearchParams({
@@ -67,16 +67,16 @@ class TokenLifecycleManager {
       const rawBody = error.message;
       const message = typeof rawBody === 'string' 
         ? rawBody 
-        : (rawBody?.error?.message || '刷新 token 失败');
+        : (rawBody?.error?.message || 'Failed to refresh token');
       throw new TokenError(message, tokenId, statusCode);
     }
   }
 
   /**
-   * 安全刷新单个 token（不抛出异常）
-   * @param {Object} token - Token 对象
+   * Safely refresh a single token (does not throw)
+   * @param {Object} token - Token object
    * @param {string} tokenId - Token ID
-   * @returns {Promise<'success'|'disable'|'skip'>} 刷新结果
+   * @returns {Promise<'success'|'disable'|'skip'>} Refresh result
    */
   async refreshTokenSafe(token, tokenId) {
     try {
@@ -91,9 +91,9 @@ class TokenLifecycleManager {
   }
 
   /**
-   * 并发刷新多个 token
-   * @param {Array<{token: Object, tokenId: string}>} tokens - Token 数组
-   * @returns {Promise<Object>} 刷新结果 {success: number, failed: number, tokensToDisable: Array}
+   * Refresh multiple tokens concurrently
+   * @param {Array<{token: Object, tokenId: string}>} tokens - Array of tokens
+   * @returns {Promise<Object>} Refresh result {success: number, failed: number, tokensToDisable: Array}
    */
   async refreshTokensConcurrently(tokens) {
     if (tokens.length === 0) {
@@ -101,7 +101,7 @@ class TokenLifecycleManager {
     }
 
     const tokenIds = tokens.map(t => t.tokenId);
-    log.info(`正在批量刷新 ${tokenIds.length} 个token: ${tokenIds.join(', ')}`);
+    log.info(`Batch refreshing ${tokenIds.length} tokens: ${tokenIds.join(', ')}`);
     const startTime = Date.now();
 
     const results = await Promise.allSettled(
@@ -135,9 +135,9 @@ class TokenLifecycleManager {
 
     const elapsed = Date.now() - startTime;
     if (failCount > 0) {
-      log.warn(`刷新完成: 成功 ${successCount}, 失败 ${failCount} (${failedTokenIds.join(', ')}), 耗时 ${elapsed}ms`);
+      log.warn(`Refresh complete: ${successCount} succeeded, ${failCount} failed (${failedTokenIds.join(', ')}), took ${elapsed}ms`);
     } else {
-      log.info(`刷新完成: 成功 ${successCount}, 耗时 ${elapsed}ms`);
+      log.info(`Refresh complete: ${successCount} succeeded, took ${elapsed}ms`);
     }
 
     return {
@@ -149,18 +149,18 @@ class TokenLifecycleManager {
   }
 
   /**
-   * 获取过期的 tokens
-   * @param {Array<{token: Object, tokenId: string}>} tokens - Token 数组
-   * @returns {Array<{token: Object, tokenId: string}>} 过期的 token 数组
+   * Get expired tokens
+   * @param {Array<{token: Object, tokenId: string}>} tokens - Array of tokens
+   * @returns {Array<{token: Object, tokenId: string}>} Array of expired tokens
    */
   getExpiredTokens(tokens) {
     return tokens.filter(({ token }) => this.isExpired(token));
   }
 
   /**
-   * 计算 token 剩余有效时间（秒）
-   * @param {Object} token - Token 对象
-   * @returns {number} 剩余秒数，如果已过期返回 0
+   * Calculate remaining validity time of a token (in seconds)
+   * @param {Object} token - Token object
+   * @returns {number} Remaining seconds, or 0 if already expired
    */
   getTimeToExpire(token) {
     if (!token.timestamp || !token.expires_in) return 0;
@@ -170,10 +170,10 @@ class TokenLifecycleManager {
   }
 
   /**
-   * 检查 token 是否即将过期（在缓冲时间内）
-   * @param {Object} token - Token 对象
-   * @param {number} bufferSeconds - 缓冲时间（秒），默认使用 TOKEN_REFRESH_BUFFER
-   * @returns {boolean} 是否即将过期
+   * Check whether a token is expiring soon (within the buffer window)
+   * @param {Object} token - Token object
+   * @param {number} bufferSeconds - Buffer time in seconds, defaults to TOKEN_REFRESH_BUFFER
+   * @returns {boolean} Whether the token is expiring soon
    */
   isExpiringSoon(token, bufferSeconds = TOKEN_REFRESH_BUFFER / 1000) {
     const remaining = this.getTimeToExpire(token);

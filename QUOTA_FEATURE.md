@@ -1,80 +1,64 @@
-# 模型额度管理功能
+# Model Quota Management
 
-## 功能说明
+## Overview
 
-新增了模型额度查看功能，可以在前端管理界面查看每个 Token 对应的模型剩余额度和重置时间。
+The Model Quota Management feature lets you inspect each token's remaining model quota and reset time directly in the Web Admin Dashboard.
 
-## 实现方案
+## Architecture
 
-### 数据存储
-- **accounts.json**: 保持简洁，只存储核心认证信息
-- **data/quotas.json**: 新建文件，专门存储额度信息（轻量级持久化）
-- **内存缓存**: 5分钟缓存，避免频繁请求API
-- **自动清理**: 每小时清理超过1小时未更新的数据
+### Data Storage
+- **`data/accounts.json`**: Stores only core account authentication credentials.
+- **`data/quotas.json`**: Dedicated lightweight persistence file for cached quota data.
+- **In-memory cache**: 5-minute TTL to avoid excessive upstream API calls.
+- **Auto cleanup**: Runs hourly to purge entries not updated in over 1 hour.
 
-### 核心文件
+### Core Files
+1. **`src/api/client.js`**
+   - `getModelsWithQuotas(token)` extracts `quotaInfo` from upstream model metadata.
+2. **`src/auth/quota_manager.js`**
+   - Manages in-memory cache, file persistence, timezone formatting, and automatic expiration cleanup.
+3. **`src/routes/admin.js`**
+   - Exposes `GET /admin/tokens/:refreshToken/quotas` for on-demand quota fetching (supports `?refresh=true`).
+4. **`public/js/quota.js`**
+   - Handles expanding/collapsing quota panels, loading quota data, grouping models (**Claude**, **Gemini**, **Nano Banana**, **Other**), and rendering progress bars.
+5. **`public/css/pages.css`**
+   - Styles quota progress bars with color coding: green (>50%), yellow (20–50%), red (<20%).
 
-1. **src/api/client.js**
-   - 新增 `getModelsWithQuotas(token)` 函数
-   - 从 API 响应中提取 `quotaInfo` 字段
-   - 返回简化的额度数据结构
+## Usage
 
-2. **src/auth/quota_manager.js** (新建)
-   - 额度缓存管理
-   - 文件持久化
-   - UTC 时间转北京时间
-   - 自动清理过期数据
+### In the Web Dashboard
+1. Log in to the Web Admin Dashboard (`http://localhost:8045`).
+2. Click **"View Quota"** on any token card.
+3. Quotas are automatically fetched and grouped by model family, displaying:
+   - Model ID
+   - Remaining quota percentage and color-coded progress bar
+   - Next quota reset time
 
-3. **src/routes/admin.js**
-   - 新增 `GET /admin/tokens/:refreshToken/quotas` 接口
-   - 支持按需获取指定 Token 的额度信息
+### Data Formats
 
-4. **public/app.js**
-   - 新增 `toggleQuota()` 函数：展开/收起额度面板
-   - 新增 `loadQuota()` 函数：从API加载额度数据
-   - 新增 `renderQuota()` 函数：渲染进度条和额度信息
-
-5. **public/style.css**
-   - 新增额度展示相关样式
-   - 进度条样式（支持颜色渐变：绿色>50%，黄色20-50%，红色<20%）
-
-## 使用方法
-
-### 前端操作
-
-1. 登录管理界面
-2. 在 Token 卡片中点击 **"📊 查看额度"** 按钮
-3. 系统会自动加载该 Token 的所有模型额度信息
-4. 以进度条形式展示：
-   - 模型名称
-   - 剩余额度百分比（带颜色标识）
-   - 额度重置时间（北京时间）
-
-### 数据格式
-
-#### API 响应示例
+#### API Response Example
 ```json
 {
   "success": true,
   "data": {
     "lastUpdated": 1765109350660,
     "models": {
-      "gemini-2.0-flash-exp": {
+      "gemini-4-hydrogen": {
         "remaining": 0.972,
-        "resetTime": "01-07 15:27",
-        "resetTimeRaw": "2025-01-07T07:27:44Z"
+        "resetTime": "11-19 15:27",
+        "resetTimeRaw": "2026-11-19T07:27:44Z"
       },
-      "gemini-1.5-pro": {
+      "gemini-3.8-flash": {
         "remaining": 0.85,
-        "resetTime": "01-07 16:15",
-        "resetTimeRaw": "2025-01-07T08:15:30Z"
+        "resetTime": "11-19 16:15",
+        "resetTimeRaw": "2026-11-19T08:15:30Z"
       }
     }
   }
 }
 ```
 
-#### quotas.json 存储格式
+#### `data/quotas.json` Storage Format
 ```json
 {
   "meta": {
@@ -85,9 +69,9 @@
     "1//0eDtvmkC_KgZv": {
       "lastUpdated": 1765109350660,
       "models": {
-        "gemini-2.0-flash-exp": {
+        "gemini-4-hydrogen": {
           "r": 0.972,
-          "t": "2025-01-07T07:27:44Z"
+          "t": "2026-11-19T07:27:44Z"
         }
       }
     }
@@ -95,28 +79,17 @@
 }
 ```
 
-## 特性
+## Key Features
 
-✅ **按需加载**: 只在用户点击时才获取额度信息  
-✅ **智能缓存**: 5分钟内重复查看使用缓存，减少API请求  
-✅ **自动清理**: 定期清理过期数据，保持文件轻量  
-✅ **可视化展示**: 进度条直观显示剩余额度  
-✅ **颜色标识**: 绿色(>50%)、黄色(20-50%)、红色(<20%)  
-✅ **时间转换**: 自动将UTC时间转换为北京时间  
-✅ **轻量存储**: 使用字段缩写，只存储有变化的模型  
+- **On-Demand Loading**: Quotas are only fetched when requested.
+- **Smart Caching**: Reuses cached data within 5 minutes to reduce API requests.
+- **Automatic Cleanup**: Periodically removes stale quota records.
+- **Visual Progress Bars**: Color-coded indicators for quick status scanning.
+- **Lightweight Storage**: Compact keys (`r` for remaining fraction, `t` for reset timestamp).
 
-## 注意事项
+## Notes
 
-1. 首次查看额度时需要调用 Google API，可能需要几秒钟
-2. 额度信息会缓存5分钟，如需最新数据请等待缓存过期后重新查看
-3. quotas.json 文件会自动创建，无需手动配置
-4. 如果 Token 过期或无效，会显示错误提示
-
-## 测试
-
-启动服务后：
-```bash
-npm start
-```
-
-访问管理界面，点击任意 Token 的"查看额度"按钮即可测试功能。
+1. The first quota check calls the upstream Google API and may take a few seconds.
+2. Results are cached for 5 minutes; click **Refresh Now** (or pass `?refresh=true`) to force a live update.
+3. `data/quotas.json` is created automatically — no manual setup required.
+4. Expired or invalid tokens will display an error message.

@@ -1,7 +1,7 @@
 {
   "name": "antigravity-to-openai",
   "version": "1.0.0",
-  "description": "Antigravity API 转 OpenAI 格式的代理服务",
+  "description": "Proxy server converting Google Antigravity & Gemini CLI APIs to OpenAI, Claude, and Gemini compatible formats",
   "type": "module",
   "main": "src/server/index.js",
   "bin": "src/server/index.js",

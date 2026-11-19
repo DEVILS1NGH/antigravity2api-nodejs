@@ -1,4 +1,4 @@
-/* 按钮样式 */
+/* Button styles */
 .btn {
     width: auto;
     padding: 0.5rem 0.875rem;
@@ -61,7 +61,7 @@
     color: white;
 }
 
-/* Toast通知 */
+/* Toast notifications */
 .toast {
     position: fixed;
     top: 16px;
@@ -140,7 +140,7 @@
     }
 }
 
-/* Modal弹窗 */
+/* Modal dialog */
 .modal {
     position: fixed;
     inset: 0;
@@ -297,7 +297,7 @@
     }
 }
 
-/* Loading遮罩 */
+/* Loading overlay */
 .loading-overlay {
     position: fixed;
     inset: 0;
@@ -325,7 +325,7 @@
     font-weight: 500;
 }
 
-/* 帮助提示 */
+/* Help text */
 .help-tip {
     display: inline-flex;
     align-items: center;
@@ -342,7 +342,7 @@
     position: relative;
 }
 
-/* 恢复默认按钮 */
+/* Reset to default button */
 .restore-default {
     display: inline-flex;
     align-items: center;
@@ -373,7 +373,7 @@
     transform: scale(0.95);
 }
 
-/* 解锁按钮 */
+/* Unlock button */
 .unlock-btn {
     display: inline-flex;
     align-items: center;
@@ -497,7 +497,7 @@
     }
 }
 
-/* 开关样式 */
+/* Toggle switch styles */
 .switch-row {
     display: flex !important;
     flex-wrap: wrap;
@@ -590,7 +590,7 @@ input:checked+.slider:before {
     box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.1);
 }
 
-/* 订阅徽章样式 */
+/* Subscription badge styles */
 .subscription-badge {
     display: inline-flex;
     align-items: center;
@@ -625,7 +625,7 @@ input:checked+.slider:before {
     }
 }
 
-/* 积分显示样式 */
+/* Credits display styles */
 .credits-display {
     display: inline-flex;
     align-items: center;
@@ -634,7 +634,7 @@ input:checked+.slider:before {
     font-variant-numeric: tabular-nums;
 }
 
-/* Token 卡片中的信息行样式优化 */
+/* Info row style optimization inside Token card */
 .token-info .info-row {
     display: flex;
     align-items: center;
@@ -657,7 +657,7 @@ input:checked+.slider:before {
     white-space: nowrap;
 }
 
-/* Token 卡片头部的订阅和积分显示 */
+/* Subscription and credits display in Token card header */
 .status-subscription {
     margin-left: 0;
     font-size: 0.65rem;

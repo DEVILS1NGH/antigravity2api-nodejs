@@ -33,10 +33,10 @@ import { createStreamLineProcessor } from './streamLineProcessor.js';
 import { runSseStream, postJsonAndParse } from './geminiTransport.js';
 import { parseGeminiCandidateParts, toOpenAIUsage } from './geminiResponseParser.js';
 
-// ==================== Token 计时器管理 ====================
+// ==================== Token Timer Management ====================
 const tokenTimers = new Map(); // { tokenKey: { lastUsed: timestamp, intervalId: intervalId } }
-const TOKEN_TIMEOUT = 3 * 60 * 1000; // 3分钟
-const BACKEND_CALL_INTERVAL = 60 * 1000; // 60秒
+const TOKEN_TIMEOUT = 3 * 60 * 1000; // 3 minutes
+const BACKEND_CALL_INTERVAL = 60 * 1000; // 60 seconds
 const checkPointList = new Set([]);
 
 function getTokenKey(token) {
@@ -51,14 +51,14 @@ function startTokenTimer(token) {
     tokenTimers.get(key).lastUsed = now;
     return;
   }
-  sendClientRegister(token).catch(err => logger.warn('定时调用ClientRegister失败:', err.message));
-  sendClientFeature(token).catch(err => logger.warn('定时调用ClientFeature失败:', err.message));
-  sendFrontEnd(token).catch(err => logger.warn('定时调用FrontEnd失败:', err.message));
+  sendClientRegister(token).catch(err => logger.warn('Scheduled ClientRegister call failed:', err.message));
+  sendClientFeature(token).catch(err => logger.warn('Scheduled ClientFeature call failed:', err.message));
+  sendFrontEnd(token).catch(err => logger.warn('Scheduled FrontEnd call failed:', err.message));
 
   const intervalId = setInterval(() => {
-    sendClientRegister(token).catch(err => logger.warn('定时调用ClientRegister失败:', err.message));
-    sendClientFeature(token).catch(err => logger.warn('定时调用ClientFeature失败:', err.message));
-    sendFrontEnd(token).catch(err => logger.warn('定时调用FrontEnd失败:', err.message));
+    sendClientRegister(token).catch(err => logger.warn('Scheduled ClientRegister call failed:', err.message));
+    sendClientFeature(token).catch(err => logger.warn('Scheduled ClientFeature call failed:', err.message));
+    sendFrontEnd(token).catch(err => logger.warn('Scheduled FrontEnd call failed:', err.message));
   }, BACKEND_CALL_INTERVAL);
 
   tokenTimers.set(key, { lastUsed: now, intervalId });
@@ -74,9 +74,9 @@ function checkTokenTimeout() {
   }
 }
 
-setInterval(checkTokenTimeout, 30 * 1000); // 每30秒检查一次超时
+setInterval(checkTokenTimeout, 30 * 1000); // Check for timeout every 30 seconds
 
-// ==================== 模型列表缓存（智能管理） ====================
+// ==================== Model List Cache (Smart Management) ====================
 const getModelCacheTTL = () => {
   return config.cache?.modelListTTL || MODEL_LIST_CACHE_TTL;
 };
@@ -84,31 +84,82 @@ const getModelCacheTTL = () => {
 let modelListCache = null;
 let modelListCacheTime = 0;
 
-// 默认模型列表（当 API 请求失败时使用）
-// 使用 Object.freeze 防止意外修改，并帮助 V8 优化
+// Default model list (used as fallback when upstream model API fails, and merged into /v1/models)
+// Frozen with Object.freeze to prevent accidental mutation and aid V8 optimization
 const DEFAULT_MODELS = Object.freeze([
-  'claude-opus-4-6',
-  'claude-opus-4-6-thinking',
-  'claude-opus-4-7',
-  'claude-opus-4-7-thinking',
-  'claude-sonnet-4-6',
-  'claude-sonnet-4-6-thinking',
+  // Gemini 4 (Latest Frontier Models)
+  'gemini-4-carbon',
+  'gemini-4-argon',
+  'gemini-4-neon',
+  'gemini-4-hydrogen',
+  // Gemini 3.8
+  'gemini-3.8-flash',
+  'gemini-3.8-live',
+  'gemini-3.8-live-extended-thinking',
+  'gemini-3.8-flash-tts',
+  'gemini-3.8-flash-lite-tts',
+  // Gemini 3.6 & 3.5
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.5-transcribe',
+  'gemini-3.5-transcribe-live',
+  'gemini-3.5-live-translate-preview',
+  // Gemini 3.1 & 3.0
+  'gemini-3.1-pro-preview',
   'gemini-3.1-pro-high',
-  'gemini-2.5-flash-lite',
+  'gemini-3.1-pro-low',
+  'gemini-3.1-flash-lite',
+  'gemini-3.1-flash-live-preview',
+  'gemini-3.1-flash-tts-preview',
+  'gemini-3-pro-preview',
+  'gemini-3-flash-preview',
+  // Gemini Image / Nano Banana Models
+  'gemini-nano-banana-2.1',
   'gemini-3.1-flash-image',
-  'gemini-3.1-flash-image-4K',
   'gemini-3.1-flash-image-2K',
-  'gemini-2.5-flash-thinking',
+  'gemini-3.1-flash-image-4K',
+  'gemini-3.1-flash-lite-image',
+  'gemini-3.1-flash-lite-image-2K',
+  'gemini-3.1-flash-lite-image-4K',
+  'gemini-3-pro-image',
+  'gemini-3-pro-image-2K',
+  'gemini-3-pro-image-4K',
+  'gemini-2.5-flash-image',
+  // Gemini Omni Flash
+  'gemini-omni-1.2-flash',
+  'gemini-omni-1.1-flash',
+  // Gemini 2.5
   'gemini-2.5-pro',
   'gemini-2.5-flash',
-  'gemini-3.1-pro-low',
+  'gemini-2.5-flash-thinking',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash-native-audio-preview-12-2025',
+  'gemini-2.5-flash-preview-tts',
+  'gemini-2.5-pro-preview-tts',
+  // Gemini Specialized, Tool & Agent Models
+  'gemini-decision-1',
+  'gemini-embedding-2',
+  'gemini-embedding-001',
+  'gemini-robotics-er-2-preview',
+  'deep-research-preview-04-2026',
+  'deep-research-max-preview-04-2026',
+  'antigravity-preview-09-2026',
+  // Claude Models
+  'claude-opus-4-7',
+  'claude-opus-4-7-thinking',
+  'claude-opus-4-6',
+  'claude-opus-4-6-thinking',
+  'claude-sonnet-4-6',
+  'claude-sonnet-4-6-thinking',
+  // Other Models
   'chat_20706',
   'rev19-uic3-1p',
   'gpt-oss-120b-medium',
   'chat_23310'
 ]);
 
-// 生成默认模型列表响应
+// Generate default model list response
 function getDefaultModelList() {
   const created = Math.floor(Date.now() / 1000);
   return {
@@ -123,12 +174,12 @@ function getDefaultModelList() {
 }
 
 
-// 注册对象池与模型缓存的内存清理回调
+// Register memory cleanup callbacks for object pools and model cache
 function registerMemoryCleanup() {
-  // 由流式解析模块管理自身对象池大小
+  // Stream parser module manages its own object pool sizes
   registerStreamMemoryCleanup();
 
-  // 统一由内存清理器定时触发：仅清理"已过期"的模型列表缓存
+  // Periodically triggered by the memory manager: only clears expired model list cache
   memoryManager.registerCleanup(() => {
     const ttl = getModelCacheTTL();
     const now = Date.now();
@@ -139,10 +190,10 @@ function registerMemoryCleanup() {
   });
 }
 
-// 初始化时注册清理回调
+// Register cleanup callbacks on initialization
 registerMemoryCleanup();
 
-// ==================== 辅助函数 ====================
+// ==================== Helper Functions ====================
 
 function buildHeaders(token, hostOverride = null) {
   return {
@@ -155,15 +206,15 @@ function buildHeaders(token, hostOverride = null) {
   };
 }
 
-// ==================== 上游 baseURL Fallback ====================
+// ==================== Upstream baseURL Fallback ====================
 
 /**
- * 判断错误是否应触发 baseURL fallback
- * 429 不触发（交给 with429Retry 的三档处理）
- * 403/400 不触发（权限/请求错误，换 URL 没用）
+ * Determine whether an error should trigger baseURL fallback.
+ * 429 does not trigger fallback (handled by with429Retry's three-tier logic).
+ * 403/400 do not trigger fallback (permission/request errors where switching URL won't help).
  */
 function shouldFallback(error) {
-  // 如果已经向客户端发送过流数据，禁止 fallback（避免脏数据）
+  // Disallow fallback if stream data has already been sent to the client (avoid corrupted data)
   if (error?._skipFallback) return false;
   const status = getUpstreamStatus(error);
   if (status === 429) return false;
@@ -171,7 +222,7 @@ function shouldFallback(error) {
   if (status === 400) return false;
   if (status === 503) return true;
   if (status >= 500) return true;
-  // 网络错误/超时（无 status 或 fallback 默认 500）
+  // Network error / timeout (no status or fallback default 500)
   const code = error?.code || error?.cause?.code;
   const networkCodes = [
     'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND',
@@ -196,19 +247,19 @@ function sleep(ms) {
 }
 
 /**
- * 带上游 baseURL fallback 的执行器
- * 按 config.api.upstreamCandidates 顺序尝试，遇到 503/网络错误/5xx 时自动切换下一个
- * 503 属于容量/资源临时不可用，切换下一个上游前也按固定重试间隔等待
- * 429/403/400 等不 fallback，直接抛出让上层处理
+ * Executor with upstream baseURL fallback.
+ * Tries candidates in config.api.upstreamCandidates order, automatically switching to the next on 503/network error/5xx.
+ * 503 indicates temporary capacity/resource unavailability, so it waits a fixed retry interval before trying the next upstream.
+ * 429/403/400 etc. do not fallback and are rethrown for upper-layer handling.
  *
- * @param {Function} fn - (candidate) => Promise，candidate 包含 { name, url, noStreamUrl, host, ... }
- *                        candidate 为 null 时表示无候选列表，应使用默认 config
+ * @param {Function} fn - (candidate) => Promise, where candidate contains { name, url, noStreamUrl, host, ... }.
+ *                        When candidate is null, no candidate list is configured and default config should be used.
  * @returns {Promise<any>}
  */
 async function withUpstreamFallback(fn) {
   const candidates = config.api.upstreamCandidates;
   if (!candidates || candidates.length === 0) {
-    // 无候选列表，直接用默认配置执行
+    // No candidate list; execute directly with default configuration
     return fn(null);
   }
   let lastError = null;
@@ -219,30 +270,30 @@ async function withUpstreamFallback(fn) {
     } catch (error) {
       lastError = error;
       if (!shouldFallback(error)) {
-        throw error; // 429/403/400 等不应 fallback 的错误直接抛出
+        throw error; // Rethrow non-fallback errors like 429/403/400 directly
       }
       const status = getUpstreamStatus(error);
       const nextCandidate = candidates[index + 1];
       if (nextCandidate && shouldWaitBeforeFallback(error)) {
         const retryIntervalMs = getSafeUpstreamFallbackDelayMs();
         logger.warn(
-          `[upstream-fallback] ${candidate.name} 失败 (${status || 'network error'}: ${error.message?.substring(0, 100)})，` +
-          `等待固定间隔 ${retryIntervalMs}ms 后尝试下一个上游 ${nextCandidate.name}...`
+          `[upstream-fallback] ${candidate.name} failed (${status || 'network error'}: ${error.message?.substring(0, 100)}), ` +
+          `waiting fixed interval ${retryIntervalMs}ms before trying next upstream ${nextCandidate.name}...`
         );
         await sleep(retryIntervalMs);
       } else {
         logger.warn(
-          `[upstream-fallback] ${candidate.name} 失败 (${status || 'network error'}: ${error.message?.substring(0, 100)})，` +
-          (nextCandidate ? `尝试下一个上游 ${nextCandidate.name}...` : '没有更多上游可尝试')
+          `[upstream-fallback] ${candidate.name} failed (${status || 'network error'}: ${error.message?.substring(0, 100)}), ` +
+          (nextCandidate ? `trying next upstream ${nextCandidate.name}...` : 'no more upstreams to try')
         );
       }
     }
   }
-  logger.error('[upstream-fallback] 所有上游均失败');
+  logger.error('[upstream-fallback] All upstreams failed');
   throw lastError;
 }
 
-// 统一错误处理
+// Unified error handling
 async function handleApiError(error, token, dumpId = null) {
   const status = getUpstreamStatus(error);
   const errorBody = await readUpstreamErrorBody(error);
@@ -253,17 +304,17 @@ async function handleApiError(error, token, dumpId = null) {
 
   if (status === 403) {
     if (isCallerDoesNotHavePermission(errorBody)) {
-      throw createApiError(`超出模型最大上下文。错误详情: ${errorBody}`, status, errorBody);
+      throw createApiError(`Exceeded model maximum context length. Error details: ${errorBody}`, status, errorBody);
     }
     tokenManager.disableToken(token);
-    throw createApiError(`该账号没有使用权限，已自动禁用。错误详情: ${errorBody}`, status, errorBody);
+    throw createApiError(`This account does not have permission and has been automatically disabled. Error details: ${errorBody}`, status, errorBody);
   }
 
-  throw createApiError(`API请求失败 (${status}): ${errorBody}`, status, errorBody);
+  throw createApiError(`API request failed (${status}): ${errorBody}`, status, errorBody);
 }
 
 
-// ==================== 导出函数 ====================
+// ==================== Exported Functions ====================
 
 export async function generateAssistantResponse(requestBody, token, callback) {
   startTokenTimer(token);
@@ -280,7 +331,7 @@ export async function generateAssistantResponse(requestBody, token, callback) {
   //console.log(JSON.stringify(requestBody,null,2));
 
   try {
-    // 追踪是否已经向客户端发送过流数据（用于防止 fallback 时产生脏数据）
+    // Track whether stream data has already been emitted to the client (to prevent corrupted data on fallback)
     let hasEmittedData = false;
     const safeCallback = (...args) => {
       hasEmittedData = true;
@@ -293,7 +344,7 @@ export async function generateAssistantResponse(requestBody, token, callback) {
       const headers = buildHeaders(token, targetHost);
       headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(requestBody)));
 
-      // 每次 fallback 尝试都创建新的 state/processor（避免上一次尝试的脏状态）
+      // Create fresh state/processor for each fallback attempt (avoid dirty state from previous attempt)
       const state = {
         toolCalls: [],
         reasoningSignature: null,
@@ -316,28 +367,28 @@ export async function generateAssistantResponse(requestBody, token, callback) {
         });
       } catch (error) {
         try { processor.close(); } catch { }
-        // 如果已经向客户端发送过数据，不能 fallback（否则客户端收到重复/混乱的流事件）
+        // Do not fallback if data has already been sent to the client (otherwise client receives duplicate/garbled stream events)
         if (hasEmittedData) {
           error._skipFallback = true;
         }
-        throw error; // 让 withUpstreamFallback 判断是否 fallback
+        throw error; // Let withUpstreamFallback decide whether to fallback
       }
     });
 
-    // 流式响应结束后，以 JSON 格式写入日志
+    // Write stream response to log in JSON format after it ends
     if (dumpId) {
       await dumpStreamResponse(dumpId, streamCollector);
     }
-    sendRecordCodeAssistMetrics(token, trajectoryId).catch(err => logger.warn('发送RecordCodeAssistMetrics失败:', err.message));
-    sendRecordTrajectoryAnalytics(token, num, trajectoryId, messageId, conversationId, modelName).catch(err => logger.warn('发送轨迹分析失败:', err.message));
-    sendLog(token, num, trajectoryId, conversationId, messageId).catch(err => logger.warn('发送log失败:', err.message));
-    sendCheckPoint(token).catch(err => logger.warn('发送checkPoint失败:', err.message));;
+    sendRecordCodeAssistMetrics(token, trajectoryId).catch(err => logger.warn('Failed to send RecordCodeAssistMetrics:', err.message));
+    sendRecordTrajectoryAnalytics(token, num, trajectoryId, messageId, conversationId, modelName).catch(err => logger.warn('Failed to send trajectory analytics:', err.message));
+    sendLog(token, num, trajectoryId, conversationId, messageId).catch(err => logger.warn('Failed to send log:', err.message));
+    sendCheckPoint(token).catch(err => logger.warn('Failed to send checkPoint:', err.message));;
   } catch (error) {
     await handleApiError(error, token, dumpId);
   }
 }
 
-// 内部工具：从远端拉取完整模型原始数据
+// Internal helper: fetch raw complete model data from remote
 async function fetchRawModels(headers, token) {
   try {
     const { data } = await requesterManager.fetch(config.api.modelsUrl, {
@@ -352,7 +403,7 @@ async function fetchRawModels(headers, token) {
 }
 
 export async function getAvailableModels() {
-  // 检查缓存是否有效（动态 TTL）
+  // Check if cache is valid (dynamic TTL)
   const now = Date.now();
   const ttl = getModelCacheTTL();
   if (modelListCache && (now - modelListCacheTime) < ttl) {
@@ -361,15 +412,15 @@ export async function getAvailableModels() {
 
   const token = await tokenManager.getToken();
   if (!token) {
-    // 没有 token 时返回默认模型列表
-    logger.warn('没有可用的 token，返回默认模型列表');
+    // Return default model list when no token is available
+    logger.warn('No available token, returning default model list');
     return getDefaultModelList();
   }
 
   const headers = buildHeaders(token);
   const data = await fetchRawModels(headers, token);
   if (!data) {
-    // fetchRawModels 里已经做了统一错误处理，这里兜底为默认列表
+    // fetchRawModels already handles errors uniformly; fall back to default list here
     return getDefaultModelList();
   }
 
@@ -381,7 +432,7 @@ export async function getAvailableModels() {
     owned_by: 'google'
   }));
 
-  // 添加默认模型（如果 API 返回的列表中没有）
+  // Add default models if not present in the API response list
   const existingIds = new Set(modelList.map(m => m.id));
   for (const defaultModel of DEFAULT_MODELS) {
     if (!existingIds.has(defaultModel)) {
@@ -399,20 +450,20 @@ export async function getAvailableModels() {
     data: modelList
   };
 
-  // 更新缓存
+  // Update cache
   modelListCache = result;
   modelListCacheTime = now;
   const currentTTL = getModelCacheTTL();
-  logger.info(`模型列表已缓存 (有效期: ${currentTTL / 1000}秒, 模型数量: ${modelList.length})`);
+  logger.info(`Model list cached (TTL: ${currentTTL / 1000}s, model count: ${modelList.length})`);
 
   return result;
 }
 
-// 清除模型列表缓存（可用于手动刷新）
+// Clear model list cache (can be used for manual refresh)
 export function clearModelListCache() {
   modelListCache = null;
   modelListCacheTime = 0;
-  logger.info('模型列表缓存已清除');
+  logger.info('Model list cache cleared');
 }
 
 export async function getModelsWithQuotas(token) {
@@ -460,9 +511,9 @@ export async function generateAssistantResponseNoStream(requestBody, token) {
         rawFormat: 'json'
       });
     });
-    sendRecordCodeAssistMetrics(token, trajectoryId).catch(err => logger.warn('发送RecordCodeAssistMetrics失败:', err.message));
-    sendRecordTrajectoryAnalytics(token, num, trajectoryId, messageId, conversationId, modelName).catch(err => logger.warn('发送轨迹分析失败:', err.message));
-    sendLog(token, num, trajectoryId, conversationId, messageId).catch(err => logger.warn('发送log失败:', err.message));
+    sendRecordCodeAssistMetrics(token, trajectoryId).catch(err => logger.warn('Failed to send RecordCodeAssistMetrics:', err.message));
+    sendRecordTrajectoryAnalytics(token, num, trajectoryId, messageId, conversationId, modelName).catch(err => logger.warn('Failed to send trajectory analytics:', err.message));
+    sendLog(token, num, trajectoryId, conversationId, messageId).catch(err => logger.warn('Failed to send log:', err.message));
   } catch (error) {
     await handleApiError(error, token, dumpId);
   }
@@ -478,18 +529,18 @@ export async function generateAssistantResponseNoStream(requestBody, token) {
 
   const usageData = toOpenAIUsage(data.response?.usageMetadata);
 
-  // 将新的签名和思考内容写入全局缓存（按 model），供后续请求兜底使用
+  // Store the new signature and thought content in the global cache (keyed by model) as a fallback for subsequent requests
   const sessionId = requestBody.request?.sessionId;
   const model = requestBody.model;
   const hasTools = parsed.toolCalls.length > 0;
   const isImage = isImageModel(model);
 
-  // 判断是否应该缓存签名
+  // Determine whether the signature should be cached
   if (sessionId && model && shouldCacheSignature({ hasTools, isImageModel: isImage })) {
-    // 获取最终使用的签名（优先使用工具签名，回退到思维签名）
+    // Get the final signature to cache (prefer tool signature, fallback to reasoning signature)
     let finalSignature = parsed.reasoningSignature;
 
-    // 工具签名：取最后一个带 thoughtSignature 的工具作为缓存源（更接近"最新"）
+    // Tool signature: pick the last tool call with a thoughtSignature as the cache source (closer to "latest")
     if (hasTools) {
       for (let i = parsed.toolCalls.length - 1; i >= 0; i--) {
         const sig = parsed.toolCalls[i]?.thoughtSignature;
@@ -506,7 +557,7 @@ export async function generateAssistantResponseNoStream(requestBody, token) {
     }
   }
 
-  // 生图模型：转换为 markdown 格式
+  // Image generation models: convert to markdown format
   if (parsed.imageUrls.length > 0) {
     let markdown = parsed.content ? parsed.content + '\n\n' : '';
     markdown += parsed.imageUrls.map(url => `![image](${url})`).join('\n\n');
@@ -539,9 +590,9 @@ export async function generateImageForSD(requestBody, token) {
   } catch (error) {
     await handleApiError(error, token);
   }
-  sendRecordCodeAssistMetrics(token, trajectoryId).catch(err => logger.warn('发送RecordCodeAssistMetrics失败:', err.message));
-  sendRecordTrajectoryAnalytics(token, num, trajectoryId, messageId, conversationId, modelName).catch(err => logger.warn('发送轨迹分析失败:', err.message));
-  sendLog(token, num, trajectoryId, conversationId, messageId).catch(err => logger.warn('发送log失败:', err.message));
+  sendRecordCodeAssistMetrics(token, trajectoryId).catch(err => logger.warn('Failed to send RecordCodeAssistMetrics:', err.message));
+  sendRecordTrajectoryAnalytics(token, num, trajectoryId, messageId, conversationId, modelName).catch(err => logger.warn('Failed to send trajectory analytics:', err.message));
+  sendLog(token, num, trajectoryId, conversationId, messageId).catch(err => logger.warn('Failed to send log:', err.message));
 
   const parts = data.response?.candidates?.[0]?.content?.parts || [];
   const images = parts.filter(p => p.inlineData).map(p => p.inlineData.data);
@@ -561,7 +612,7 @@ export async function sendRecordTrajectoryAnalytics(token, num, trajectoryId, ex
       okStatus: [200],
     });
   } catch (error) {
-    throw new Error(`轨迹分析请求失败 (${error.status ?? ''}): ${error.message}`);
+    throw new Error(`Trajectory analytics request failed (${error.status ?? ''}): ${error.message}`);
   }
 }
 
@@ -581,12 +632,12 @@ export async function sendLog(token, num, trajectoryId, conversationId, messageI
   headers["Content-Type"] = "application/octet-stream";
   headers["Accept-Encoding"] = "gzip";
 
-  // TLS 请求器暂不支持二进制 body，此处固定使用 axios
+  // TLS requester does not support binary body yet; always use axios here
   try {
     for (const log of logs) {
       const serializeData = serializeTelemetryBatch(log);
       if (!serializeData.success) {
-        throw new Error(`Telemetry proto 序列化失败: ${serializeData.error}`);
+        throw new Error(`Telemetry proto serialization failed: ${serializeData.error}`);
       }
       const serializeLogBody = serializeData.data;
       headers["Content-Length"] = String(serializeLogBody.length);
@@ -615,7 +666,7 @@ export async function sendRecordCodeAssistMetrics(token, trajectoryId) {
       okStatus: [200],
     });
   } catch (error) {
-    throw new Error(`RecordCodeAssistMetrics请求失败 (${error.status ?? ''}): ${error.message}`);
+    throw new Error(`RecordCodeAssistMetrics request failed (${error.status ?? ''}): ${error.message}`);
   }
 }
 
@@ -631,7 +682,7 @@ export async function sendClientRegister(token) {
       okStatus: [200, 202],
     });
   } catch (error) {
-    throw new Error(`ClientRegister请求失败 (${error.status ?? ''}): ${error.message}`);
+    throw new Error(`ClientRegister request failed (${error.status ?? ''}): ${error.message}`);
   }
 }
 
@@ -645,7 +696,7 @@ export async function sendClientFeature(token) {
       okStatus: [200, 202],
     });
   } catch (error) {
-    throw new Error(`ClientFeature请求失败 (${error.status ?? ''}): ${error.message}`);
+    throw new Error(`ClientFeature request failed (${error.status ?? ''}): ${error.message}`);
   }
 }
 
@@ -661,7 +712,7 @@ export async function sendFrontEnd(token) {
       okStatus: [200, 202],
     });
   } catch (error) {
-    throw new Error(`FrontEnd请求失败 (${error.status ?? ''}): ${error.message}`);
+    throw new Error(`FrontEnd request failed (${error.status ?? ''}): ${error.message}`);
   }
 }
 
@@ -682,9 +733,9 @@ export async function sendCheckPoint(token) {
       okStatus: [200, 202],
     });
   } catch (error) {
-    throw new Error(`CheckPoint请求失败 (${error.status ?? ''}): ${error.message}`);
+    throw new Error(`CheckPoint request failed (${error.status ?? ''}): ${error.message}`);
   }
 }
 
-// 导出内存清理注册函数（供外部调用）
+// Export memory cleanup registration function (for external invocation)
 export { registerMemoryCleanup };

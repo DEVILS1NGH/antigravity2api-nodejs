@@ -1,11 +1,11 @@
-// 额度管理：查看、刷新、缓存
+// Quota management: view, refresh, cache
 
 let currentQuotaToken = null;
 
 const quotaCache = {
     data: {},
     ttl: 5 * 60 * 1000,
-    maxSize: 50, // 最大缓存条目数
+    maxSize: 50, // Max cached entries
     cleanupTimer: null,
 
     get(tokenId) {
@@ -19,10 +19,10 @@ const quotaCache = {
     },
 
     set(tokenId, data) {
-        // 检查缓存大小，超出时清理最旧的条目
+        // Check cache size; evict oldest entries when full
         const keys = Object.keys(this.data);
         if (keys.length >= this.maxSize) {
-            this._evictOldest(Math.ceil(this.maxSize * 0.2)); // 清理20%
+            this._evictOldest(Math.ceil(this.maxSize * 0.2)); // Evict 20%
         }
         this.data[tokenId] = { data, timestamp: Date.now() };
     },
@@ -35,7 +35,7 @@ const quotaCache = {
         }
     },
 
-    // 清理过期缓存
+    // Clean up expired cache entries
     cleanup() {
         const now = Date.now();
         const keys = Object.keys(this.data);
@@ -49,7 +49,7 @@ const quotaCache = {
         return cleaned;
     },
 
-    // 清理最旧的 n 个条目
+    // Evict the oldest n entries
     _evictOldest(n) {
         const entries = Object.entries(this.data)
             .sort((a, b) => a[1].timestamp - b[1].timestamp);
@@ -58,15 +58,15 @@ const quotaCache = {
         }
     },
 
-    // 启动定期清理
+    // Start periodic cleanup
     startCleanupTimer() {
         if (this.cleanupTimer) return;
         this.cleanupTimer = setInterval(() => {
             this.cleanup();
-        }, 60 * 1000); // 每分钟清理一次过期缓存
+        }, 60 * 1000); // Clean expired entries every minute
     },
 
-    // 停止定期清理
+    // Stop periodic cleanup
     stopCleanupTimer() {
         if (this.cleanupTimer) {
             clearInterval(this.cleanupTimer);
@@ -74,7 +74,7 @@ const quotaCache = {
         }
     },
 
-    // 获取缓存统计信息
+    // Get cache statistics
     getStats() {
         return {
             size: Object.keys(this.data).length,
@@ -83,11 +83,11 @@ const quotaCache = {
     }
 };
 
-// 页面加载时启动缓存清理定时器
+// Start cache cleanup timer on page load
 if (typeof document !== 'undefined') {
     quotaCache.startCleanupTimer();
 
-    // 页面卸载时清理
+    // Clean up on page unload
     window.addEventListener('beforeunload', () => {
         quotaCache.stopCleanupTimer();
         quotaCache.clear();
@@ -103,19 +103,25 @@ const QUOTA_GROUPS = [
     },
     {
         key: 'banana',
-        label: 'banana',
+        label: 'Nano Banana',
         iconSrc: '/assets/icons/banana.svg',
-        match: (modelId) => modelId.toLowerCase().includes('gemini-3.1-flash-image')
+        match: (modelId) => {
+            const lower = modelId.toLowerCase();
+            return lower.includes('nano-banana') || (lower.includes('gemini') && lower.includes('-image')) || lower.includes('imagen');
+        }
     },
     {
         key: 'gemini',
         label: 'Gemini',
         iconSrc: '/assets/icons/gemini.svg',
-        match: (modelId) => modelId.toLowerCase().includes('gemini') || modelId.toLowerCase().includes('publishers/google/')
+        match: (modelId) => {
+            const lower = modelId.toLowerCase();
+            return lower.includes('gemini') || lower.includes('publishers/google/') || lower.includes('deep-research-') || lower.includes('antigravity-');
+        }
     },
     {
         key: 'other',
-        label: '其他',
+        label: 'Other',
         iconSrc: '',
         match: () => true
     }
@@ -163,11 +169,11 @@ function groupModels(models) {
     return grouped;
 }
 
-// 不同模型系列的每次请求消耗百分比（与后端 GROUP_COST_PERCENT 保持一致）
+// Per-request quota cost percentage by model family (matches backend GROUP_COST_PERCENT)
 const GROUP_COST_PERCENT = {
     claude: 0.6667,
     gemini: 0.6667,
-    banana: 5.0,    // 图片生成模型消耗更高，约 20 次/满额
+    banana: 5.0,    // Image generation models cost more, ~20 requests per full quota
     other: 0.6667
 };
 
@@ -198,9 +204,9 @@ function summarizeGroup(items, requestCount = 0, groupKey = null) {
         }
     });
 
-    // 根据模型系列使用不同的消耗率
+    // Use different consumption rates per model family
     const costPercent = (groupKey && GROUP_COST_PERCENT[groupKey]) || 0.6667;
-    // 基于当前阈值计算总的可用次数，然后减去已记录的请求次数
+    // Estimate total available requests from current threshold, then subtract recorded requests
     const percentageValue = toPercentage(minRemaining);
     const totalFromThreshold = Math.floor(percentageValue / costPercent);
     const estimatedRequests = Math.max(0, totalFromThreshold - requestCount);
@@ -268,11 +274,11 @@ function updateTokenCardMeta(tokenId, token) {
 
     const credits = token.credits;
     creditsEl.className = `status-credits ${credits !== null && credits !== undefined ? (Number(credits) <= 0 ? 'credits-empty' : '') : 'no-credits'}`;
-    creditsEl.title = credits !== null && credits !== undefined ? `剩余积分: ${formatCredits(credits)}` : '无积分信息';
+    creditsEl.title = credits !== null && credits !== undefined ? `Remaining Credits: ${formatCredits(credits)}` : 'No credits info';
     creditsEl.textContent = `🪙 ${formatCredits(credits)}`;
 }
 
-// 使用 tokenId 加载额度摘要
+// Load quota summary by tokenId
 async function loadTokenQuotaSummary(tokenId) {
     const cardId = tokenId.substring(0, 8);
     const summaryEl = document.getElementById(`quota-summary-${cardId}`);
@@ -292,16 +298,16 @@ async function loadTokenQuotaSummary(tokenId) {
             quotaCache.set(tokenId, data.data);
             renderQuotaSummary(summaryEl, data.data);
         } else if (data.success && data.data) {
-            // 禁用的 token 可能返回空数据
+            // Disabled tokens may return empty data
             renderQuotaSummary(summaryEl, data.data);
         } else {
-            const errMsg = escapeHtml(data.message || '未知错误');
+            const errMsg = escapeHtml(data.message || 'Unknown error');
             summaryEl.innerHTML = `<span class="quota-summary-error">📊 ${errMsg}</span>`;
         }
     } catch (error) {
         if (error.message !== 'Unauthorized') {
-            console.error('加载额度摘要失败:', error);
-            summaryEl.innerHTML = `<span class="quota-summary-error">📊 加载失败</span>`;
+            console.error('Failed to load quota summary:', error);
+            summaryEl.innerHTML = `<span class="quota-summary-error">📊 Load failed</span>`;
         }
     }
 }
@@ -312,7 +318,7 @@ function renderQuotaSummary(summaryEl, quotaData) {
     const modelEntries = Object.entries(models || {});
 
     if (modelEntries.length === 0) {
-        summaryEl.textContent = '📊 暂无额度';
+        summaryEl.textContent = '📊 No quota data';
         return;
     }
 
@@ -324,10 +330,10 @@ function renderQuotaSummary(summaryEl, quotaData) {
         const summary = summarizeGroup(grouped[groupKey], requestCounts[groupKey] || 0, groupKey);
         const barColor = summary.percentageText === '--' ? '#9ca3af' : getBarColor(summary.percentage);
         const safeResetTime = escapeHtml(summary.resetTime);
-        const resetText = safeResetTime === '--' ? '--' : `重置: ${safeResetTime}`;
-        const estimatedText = summary.estimatedRequests > 0 ? ` · 约${summary.estimatedRequests}次` : '';
+        const resetText = safeResetTime === '--' ? '--' : `Resets: ${safeResetTime}`;
+        const estimatedText = summary.estimatedRequests > 0 ? ` · ~${summary.estimatedRequests} reqs` : '';
         const safeLabel = escapeHtml(group?.label || groupKey);
-        const title = `${group?.label || groupKey} - 重置: ${summary.resetTime} - 预估可用: ${summary.estimatedRequests}次`;
+        const title = `${group?.label || groupKey} - Resets: ${summary.resetTime} - Est. available: ${summary.estimatedRequests} reqs`;
         return `
             <div class="quota-summary-row" title="${escapeHtml(title)}">
                 <span class="quota-summary-icon">${getGroupIconHtml(group)}</span>
@@ -359,16 +365,16 @@ async function toggleQuotaExpand(cardId, tokenId) {
         toggleEl.classList.add('expanded');
 
         if (!detailEl.dataset.loaded) {
-            detailEl.innerHTML = '<div class="quota-loading-small">加载中...</div>';
+            detailEl.innerHTML = '<div class="quota-loading-small">Loading...</div>';
             await loadQuotaDetail(cardId, tokenId);
             detailEl.dataset.loaded = 'true';
         }
     } else {
-        // 添加收起动画
+        // Add collapse animation
         detailEl.classList.add('collapsing');
         toggleEl.classList.remove('expanded');
 
-        // 动画结束后隐藏
+        // Hide after animation completes
         setTimeout(() => {
             detailEl.classList.add('hidden');
             detailEl.classList.remove('collapsing');
@@ -389,7 +395,7 @@ async function loadQuotaDetail(cardId, tokenId) {
             const modelEntries = Object.entries(models);
 
             if (modelEntries.length === 0) {
-                detailEl.innerHTML = '<div class="quota-empty-small">暂无额度信息</div>';
+                detailEl.innerHTML = '<div class="quota-empty-small">No quota info</div>';
                 return;
             }
 
@@ -408,7 +414,7 @@ async function loadQuotaDetail(cardId, tokenId) {
                     const safeModelId = escapeHtml(modelId);
                     const safeResetTime = escapeHtml(quota.resetTime);
                     groupHtml += `
-                        <div class="quota-detail-row" title="${safeModelId} - 重置: ${safeResetTime}">
+                        <div class="quota-detail-row" title="${safeModelId} - Resets: ${safeResetTime}">
                             <span class="quota-detail-icon">${icon}</span>
                             <span class="quota-detail-name">${shortName}</span>
                             <span class="quota-detail-bar"><span style="width:${percentage}%;background:${barColor}"></span></span>
@@ -425,16 +431,16 @@ async function loadQuotaDetail(cardId, tokenId) {
             html += renderGroup(grouped.banana, getGroupIconHtml(groupByKey.banana));
             html += renderGroup(grouped.other, '');
             html += '</div>';
-            html += `<button class="btn btn-info btn-xs quota-refresh-btn" onclick="refreshInlineQuota('${escapeJs(cardId)}', '${escapeJs(tokenId)}')">🔄 刷新额度</button>`;
+            html += `<button class="btn btn-info btn-xs quota-refresh-btn" onclick="refreshInlineQuota('${escapeJs(cardId)}', '${escapeJs(tokenId)}')">🔄 Refresh Quota</button>`;
 
             detailEl.innerHTML = html;
         } else {
-            const errMsg = escapeHtml(data.message || '未知错误');
-            detailEl.innerHTML = `<div class="quota-error-small">加载失败: ${errMsg}</div>`;
+            const errMsg = escapeHtml(data.message || 'Unknown error');
+            detailEl.innerHTML = `<div class="quota-error-small">Load failed: ${errMsg}</div>`;
         }
     } catch (error) {
         if (error.message !== 'Unauthorized') {
-            detailEl.innerHTML = `<div class="quota-error-small">网络错误</div>`;
+            detailEl.innerHTML = `<div class="quota-error-small">Network error</div>`;
         }
     }
 }
@@ -443,8 +449,8 @@ async function refreshInlineQuota(cardId, tokenId) {
     const detailEl = document.getElementById(`quota-detail-${cardId}`);
     const summaryEl = document.getElementById(`quota-summary-${cardId}`);
 
-    if (detailEl) detailEl.innerHTML = '<div class="quota-loading-small">刷新中...</div>';
-    if (summaryEl) summaryEl.textContent = '📊 刷新中...';
+    if (detailEl) detailEl.innerHTML = '<div class="quota-loading-small">Refreshing...</div>';
+    if (summaryEl) summaryEl.textContent = '📊 Refreshing...';
 
     quotaCache.clear(tokenId);
 
@@ -461,7 +467,7 @@ async function refreshInlineQuota(cardId, tokenId) {
     await loadQuotaDetail(cardId, tokenId);
 }
 
-// 存储当前弹窗的事件处理器引用，便于清理
+// Store wheel event handler reference for the current modal for cleanup
 let quotaModalWheelHandler = null;
 
 async function showQuotaModal(tokenId) {
@@ -470,7 +476,7 @@ async function showQuotaModal(tokenId) {
     const activeIndex = cachedTokens.findIndex(t => t.id === tokenId);
 
     const emailTabs = cachedTokens.map((t, index) => {
-        const email = t.email || '未知';
+        const email = t.email || 'Unknown';
         const shortEmail = email.length > 20 ? email.substring(0, 17) + '...' : email;
         const isActive = index === activeIndex;
         const safeEmail = escapeHtml(email);
@@ -484,24 +490,24 @@ async function showQuotaModal(tokenId) {
     modal.innerHTML = `
         <div class="modal-content modal-xl">
             <div class="quota-modal-header">
-                <div class="modal-title">📊 模型额度</div>
+                <div class="modal-title">📊 Model Quotas</div>
                 <div class="quota-update-time" id="quotaUpdateTime"></div>
             </div>
             <div class="quota-tabs" id="quotaEmailList">
                 ${emailTabs}
             </div>
             <div id="quotaContent" class="quota-container">
-                <div class="quota-loading">加载中...</div>
+                <div class="quota-loading">Loading...</div>
             </div>
             <div class="modal-actions">
-                <button class="btn btn-secondary btn-sm" onclick="closeQuotaModal()">关闭</button>
-                <button class="btn btn-info btn-sm" id="quotaRefreshBtn" onclick="refreshQuotaData()">🔄 刷新</button>
+                <button class="btn btn-secondary btn-sm" onclick="closeQuotaModal()">Close</button>
+                <button class="btn btn-info btn-sm" id="quotaRefreshBtn" onclick="refreshQuotaData()">🔄 Refresh</button>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
 
-    // 关闭弹窗时清理事件监听器
+    // Clean up event listeners when closing modal
     modal.onclick = (e) => {
         if (e.target === modal) {
             closeQuotaModal();
@@ -512,7 +518,7 @@ async function showQuotaModal(tokenId) {
 
     const tabsContainer = document.getElementById('quotaEmailList');
     if (tabsContainer) {
-        // 创建事件处理器并保存引用
+        // Create event handler and save reference
         quotaModalWheelHandler = (e) => {
             if (e.deltaY !== 0) {
                 e.preventDefault();
@@ -523,11 +529,11 @@ async function showQuotaModal(tokenId) {
     }
 }
 
-// 关闭额度弹窗并清理事件监听器
+// Close quota modal and clean up event listeners
 function closeQuotaModal() {
     const modal = document.getElementById('quotaModal');
 
-    // 清理滚轮事件监听器
+    // Remove wheel event listener
     if (quotaModalWheelHandler) {
         const tabsContainer = document.getElementById('quotaEmailList');
         if (tabsContainer) {
@@ -574,7 +580,7 @@ async function loadQuotaData(tokenId, forceRefresh = false) {
     const refreshBtn = document.getElementById('quotaRefreshBtn');
     if (refreshBtn) {
         refreshBtn.disabled = true;
-        refreshBtn.textContent = '⏳ 加载中...';
+        refreshBtn.textContent = '⏳ Loading...';
     }
 
     if (!forceRefresh) {
@@ -583,7 +589,7 @@ async function loadQuotaData(tokenId, forceRefresh = false) {
             renderQuotaModal(quotaContent, cached);
             if (refreshBtn) {
                 refreshBtn.disabled = false;
-                refreshBtn.textContent = '🔄 刷新';
+                refreshBtn.textContent = '🔄 Refresh';
             }
             return;
         }
@@ -591,7 +597,7 @@ async function loadQuotaData(tokenId, forceRefresh = false) {
         quotaCache.clear(tokenId);
     }
 
-    quotaContent.innerHTML = '<div class="quota-loading">加载中...</div>';
+    quotaContent.innerHTML = '<div class="quota-loading">Loading...</div>';
 
     try {
         const url = `/admin/tokens/${encodeURIComponent(tokenId)}/quotas${forceRefresh ? '?refresh=true' : ''}`;
@@ -606,16 +612,16 @@ async function loadQuotaData(tokenId, forceRefresh = false) {
             }
             renderQuotaModal(quotaContent, data.data);
         } else {
-            quotaContent.innerHTML = `<div class="quota-error">加载失败: ${escapeHtml(data.message)}</div>`;
+            quotaContent.innerHTML = `<div class="quota-error">Load failed: ${escapeHtml(data.message)}</div>`;
         }
     } catch (error) {
         if (quotaContent) {
-            quotaContent.innerHTML = `<div class="quota-error">加载失败: ${escapeHtml(error.message)}</div>`;
+            quotaContent.innerHTML = `<div class="quota-error">Load failed: ${escapeHtml(error.message)}</div>`;
         }
     } finally {
         if (refreshBtn) {
             refreshBtn.disabled = false;
-            refreshBtn.textContent = '🔄 刷新';
+            refreshBtn.textContent = '🔄 Refresh';
         }
     }
 }
@@ -626,31 +632,31 @@ async function refreshQuotaData() {
     }
 }
 
-// 刷新所有 Token 的额度数据
+// Refresh quota data for all enabled tokens
 async function refreshAllQuotas() {
     if (!cachedTokens || cachedTokens.length === 0) {
-        showToast('没有可刷新的 Token', 'warning');
+        showToast('No Tokens available to refresh', 'warning');
         return;
     }
 
-    // 过滤出启用的 token，禁用的不刷新
+    // Filter to enabled tokens; skip disabled ones
     const enabledTokens = cachedTokens.filter(t => t.enable !== false);
     if (enabledTokens.length === 0) {
-        showToast('没有已启用的 Token 可刷新', 'warning');
+        showToast('No enabled Tokens to refresh', 'warning');
         return;
     }
 
     const btn = document.getElementById('refreshQuotasBtn');
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '⏳ 刷新中...';
+        btn.textContent = '⏳ Refreshing...';
     }
 
-    // 只清除启用 token 的缓存
+    // Clear cache only for enabled tokens
     enabledTokens.forEach(t => quotaCache.clear(t.id));
 
     try {
-        // 并行刷新已启用 Token 的额度
+        // Refresh quotas for enabled tokens in parallel
         const refreshPromises = enabledTokens.map(async (token) => {
             try {
                 const response = await authFetch(`/admin/tokens/${encodeURIComponent(token.id)}/quotas?refresh=true`);
@@ -660,8 +666,8 @@ async function refreshAllQuotas() {
                     syncTokenMetaFromQuotaData(token.id, data.data);
                 }
             } catch (e) {
-                // 单个 Token 刷新失败不影响其他
-                console.error(`刷新 Token ${token.email || token.id.substring(0, 8)} 额度失败:`, e);
+                // A single token failing should not block the rest
+                console.error(`Failed to refresh quota for Token ${token.email || token.id.substring(0, 8)}:`, e);
             }
         });
 
@@ -672,13 +678,13 @@ async function refreshAllQuotas() {
             await loadQuotaData(currentQuotaToken);
         }
 
-        showToast(`已刷新 ${enabledTokens.length} 个 Token 的额度和积分`, 'success');
+        showToast(`Refreshed quotas and credits for ${enabledTokens.length} Token(s)`, 'success');
     } catch (error) {
-        showToast('刷新额度失败: ' + error.message, 'error');
+        showToast('Failed to refresh quotas: ' + error.message, 'error');
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = '📊 刷新额度';
+            btn.textContent = '📊 Refresh Quotas';
         }
     }
 }
@@ -689,14 +695,14 @@ function renderQuotaModal(quotaContent, quotaData) {
 
     const updateTimeEl = document.getElementById('quotaUpdateTime');
     if (updateTimeEl && quotaData.lastUpdated) {
-        const lastUpdated = new Date(quotaData.lastUpdated).toLocaleString('zh-CN', {
+        const lastUpdated = new Date(quotaData.lastUpdated).toLocaleString('en-US', {
             month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
         });
-        updateTimeEl.textContent = `更新于 ${lastUpdated}`;
+        updateTimeEl.textContent = `Updated ${lastUpdated}`;
     }
 
     if (Object.keys(models).length === 0) {
-        quotaContent.innerHTML = '<div class="quota-empty">暂无额度信息</div>';
+        quotaContent.innerHTML = '<div class="quota-empty">No quota info</div>';
         return;
     }
 
@@ -708,7 +714,7 @@ function renderQuotaModal(quotaContent, quotaData) {
         const summary = summarizeGroup(items, requestCounts[groupKey] || 0, groupKey);
         const safeLabel = escapeHtml(group.label);
         const safeResetTime = escapeHtml(summary.resetTime);
-        const estimatedText = summary.estimatedRequests > 0 ? ` · 约${summary.estimatedRequests}次` : '';
+        const estimatedText = summary.estimatedRequests > 0 ? ` · ~${summary.estimatedRequests} reqs` : '';
         const iconHtml = getGroupIconHtml(group);
         let groupHtml = `
             <div class="quota-group-title">
@@ -716,12 +722,12 @@ function renderQuotaModal(quotaContent, quotaData) {
                     <span class="quota-group-icon">${iconHtml}</span>
                     <span class="quota-group-label">${safeLabel}</span>
                 </span>
-                <span class="quota-group-meta">${escapeHtml(summary.percentageText)} · 重置: ${safeResetTime}${estimatedText}</span>
+                <span class="quota-group-meta">${escapeHtml(summary.percentageText)} · Resets: ${safeResetTime}${estimatedText}</span>
             </div>
         `;
 
         if (items.length === 0) {
-            groupHtml += '<div class="quota-empty-small">暂无</div>';
+            groupHtml += '<div class="quota-empty-small">None</div>';
             return groupHtml;
         }
 
@@ -743,7 +749,7 @@ function renderQuotaModal(quotaContent, quotaData) {
                         <div class="quota-bar" style="width: ${percentage}%; background: ${barColor};"></div>
                     </div>
                     <div class="quota-info-row">
-                        <span class="quota-reset">重置: ${safeResetTime}</span>
+                        <span class="quota-reset">Resets: ${safeResetTime}</span>
                         <span class="quota-percentage">${percentageText}</span>
                     </div>
                 </div>

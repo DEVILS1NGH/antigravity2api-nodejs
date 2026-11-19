@@ -18,4 +18,4 @@ const message = TelemetryBatch.decode(buffer);
 const object = TelemetryBatch.toObject(message, { longs: String, enums: String, bytes: String });
 
 writeFileSync(outputPath, JSON.stringify(object, null, 2));
-console.log('反序列化完成，结果已写入:', outputPath);
+console.log('Deserialization complete, output written to:', outputPath);

@@ -1,6 +1,6 @@
 /**
- * Token轮询功能测试脚本
- * 测试三种轮询策略：round_robin, quota_exhausted, request_count
+ * Token rotation polling test script
+ * Tests three rotation strategies: round_robin, quota_exhausted, request_count
  */
 
 import path from 'path';
@@ -12,14 +12,14 @@ import { StrategyFactory } from '../src/auth/token_rotation_strategy.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 使用mock文件路径
+// Use mock file path
 const mockAccountsPath = path.join(__dirname, 'mock-accounts.json');
 
-// 测试结果统计
+// Test result counters
 let passed = 0;
 let failed = 0;
 
-// 辅助函数：打印测试结果
+// Helper: print test result
 function printResult(testName, success, message = '') {
   if (success) {
     console.log(`✅ ${testName}`);
@@ -30,43 +30,43 @@ function printResult(testName, success, message = '') {
   }
 }
 
-// 辅助函数：延迟
+// Helper: sleep
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-console.log('\n=== Token轮询功能测试 ===\n');
+console.log('\n=== Token Rotation Polling Tests ===\n');
 
 async function testRoundRobinStrategy() {
-  console.log('📋 测试1: Round Robin 策略');
-  console.log('预期: 依次轮询每个可用token\n');
+  console.log('📋 Test 1: Round Robin Strategy');
+  console.log('Expected: Rotate through each available token in sequence\n');
   
   try {
-    // 初始化
+    // Initialize
     const store = new TokenStore(mockAccountsPath);
     const pool = new TokenPool(store);
     const strategy = StrategyFactory.create('round_robin');
     
-    // 加载tokens
+    // Load tokens
     const tokens = await store.readAll();
     const enabledTokens = tokens.filter(t => !t.disabled);
     
-    printResult('加载测试数据', enabledTokens.length === 3, `获取到${enabledTokens.length}个启用的token`);
+    printResult('Load test data', enabledTokens.length === 3, `Loaded ${enabledTokens.length} enabled tokens`);
     
-    // 添加到pool
+    // Add to pool
     for (const token of enabledTokens) {
       await pool.add(token);
     }
     
-    // 获取可用tokens（构建轮询策略需要的格式）
+    // Get available tokens (in the format expected by rotation strategies)
     const enabledIds = pool.getEnabledIds();
     const availableTokens = enabledIds.map(id => ({
       tokenId: id,
       token: pool.get(id)
     }));
-    printResult('Token池初始化', availableTokens.length === 3);
+    printResult('Token pool initialization', availableTokens.length === 3);
     
-    // 测试轮询顺序
+    // Test rotation order
     const selectedTokens = [];
     for (let i = 0; i < 6; i++) {
       const selected = strategy.selectToken(availableTokens);
@@ -76,29 +76,29 @@ async function testRoundRobinStrategy() {
       }
     }
     
-    console.log(`  轮询顺序: ${selectedTokens.join(' -> ')}`);
+    console.log(`  Rotation order: ${selectedTokens.join(' -> ')}`);
     
-    // 验证轮询是循环的
-    const expectedPattern = ['测试账号1', '测试账号2', '测试账号3', '测试账号1', '测试账号2', '测试账号3'];
+    // Verify rotation is cyclic
+    const expectedPattern = ['Test Account 1', 'Test Account 2', 'Test Account 3', 'Test Account 1', 'Test Account 2', 'Test Account 3'];
     const isCorrectPattern = selectedTokens.every((name, idx) => name === expectedPattern[idx]);
     
-    printResult('Round Robin轮询顺序', isCorrectPattern);
+    printResult('Round Robin rotation order', isCorrectPattern);
     
-    // 测试重置
+    // Test reset
     strategy.reset();
     const firstAfterReset = strategy.selectToken(availableTokens);
-    printResult('策略重置', firstAfterReset.token.name === '测试账号1');
+    printResult('Strategy reset', firstAfterReset.token.name === 'Test Account 1');
     
     console.log();
   } catch (error) {
-    console.error('测试失败:', error.message);
+    console.error('Test failed:', error.message);
     failed++;
   }
 }
 
 async function testQuotaExhaustedStrategy() {
-  console.log('📋 测试2: Quota Exhausted 策略');
-  console.log('预期: 持续使用同一个token直到手动切换\n');
+  console.log('📋 Test 2: Quota Exhausted Strategy');
+  console.log('Expected: Keep using the same token until manually switched\n');
   
   try {
     const store = new TokenStore(mockAccountsPath);
@@ -112,53 +112,53 @@ async function testQuotaExhaustedStrategy() {
       await pool.add(token);
     }
     
-    // 获取可用tokens
+    // Get available tokens
     const enabledIds = pool.getEnabledIds();
     const availableTokens = enabledIds.map(id => ({
       tokenId: id,
       token: pool.get(id)
     }));
     
-    // 多次获取token，应该都是同一个
+    // Fetch token multiple times; should always return the same one
     const selectedTokens = [];
     for (let i = 0; i < 5; i++) {
       const selected = strategy.selectToken(availableTokens);
       selectedTokens.push(selected.token.name);
     }
     
-    console.log(`  使用顺序: ${selectedTokens.join(' -> ')}`);
+    console.log(`  Usage order: ${selectedTokens.join(' -> ')}`);
     
-    // 验证都是同一个token
+    // Verify all are the same token
     const allSame = selectedTokens.every(name => name === selectedTokens[0]);
-    printResult('持续使用同一token', allSame);
+    printResult('Keep using the same token', allSame);
     
-    // 手动切换到下一个
+    // Manually switch to next
     strategy.switchToNext(availableTokens.length);
     const afterSwitch = strategy.selectToken(availableTokens);
     
-    printResult('手动切换token', afterSwitch.token.name === '测试账号2');
+    printResult('Manual token switch', afterSwitch.token.name === 'Test Account 2');
     
-    // 再次手动切换
+    // Manually switch a second time
     strategy.switchToNext(availableTokens.length);
     const afterSecondSwitch = strategy.selectToken(availableTokens);
     
-    printResult('第二次切换', afterSecondSwitch.token.name === '测试账号3');
+    printResult('Second manual switch', afterSecondSwitch.token.name === 'Test Account 3');
     
     console.log();
   } catch (error) {
-    console.error('测试失败:', error.message);
+    console.error('Test failed:', error.message);
     failed++;
   }
 }
 
 async function testRequestCountStrategy() {
-  console.log('📋 测试3: Request Count 策略');
-  console.log('预期: 每个token处理固定次数请求后自动切换\n');
+  console.log('📋 Test 3: Request Count Strategy');
+  console.log('Expected: Automatically switch after each token handles a fixed number of requests\n');
   
   try {
     const store = new TokenStore(mockAccountsPath);
     const pool = new TokenPool(store);
-    const requestsPerToken = 3; // 每个token处理3次请求
+    const requestsPerToken = 3; // Each token handles 3 requests
     const strategy = StrategyFactory.create('request_count', { requestCountPerToken: requestsPerToken });
     
     const tokens = await store.readAll();
@@ -168,14 +168,14 @@ async function testRequestCountStrategy() {
       await pool.add(token);
     }
     
-    // 获取可用tokens
+    // Get available tokens
     const enabledIds = pool.getEnabledIds();
     const availableTokens = enabledIds.map(id => ({
       tokenId: id,
       token: pool.get(id)
     }));
     
-    // 模拟请求并记录使用
+    // Simulate requests and record usage
     const selectedTokens = [];
     let currentTokenId = null;
     
@@ -183,30 +183,30 @@ async function testRequestCountStrategy() {
       const selected = strategy.selectToken(availableTokens);
       selectedTokens.push(selected.token.name);
       
-      // 记录使用
+      // Record usage
       const shouldSwitch = strategy.recordUsage(selected.tokenId);
       
       if (shouldSwitch) {
-        console.log(`  第${i + 1}次请求后触发切换 (${selected.token.name}已达到${requestsPerToken}次)`);
+        console.log(`  Switch triggered after request #${i + 1} (${selected.token.name} reached ${requestsPerToken} requests)`);
         strategy.switchToNext(availableTokens.length, selected.tokenId);
       }
       
       currentTokenId = selected.tokenId;
     }
     
-    console.log(`  使用顺序: ${selectedTokens.join(' -> ')}`);
+    console.log(`  Usage order: ${selectedTokens.join(' -> ')}`);
     
-    // 验证切换模式：每3次切换一个token
+    // Verify switching pattern: switch token every 3 requests
     const expectedPattern = [
-      '测试账号1', '测试账号1', '测试账号1',
-      '测试账号2', '测试账号2', '测试账号2',
-      '测试账号3', '测试账号3', '测试账号3'
+      'Test Account 1', 'Test Account 1', 'Test Account 1',
+      'Test Account 2', 'Test Account 2', 'Test Account 2',
+      'Test Account 3', 'Test Account 3', 'Test Account 3'
     ];
     
     const isCorrectPattern = selectedTokens.every((name, idx) => name === expectedPattern[idx]);
-    printResult('按请求次数切换', isCorrectPattern);
+    printResult('Switch by request count', isCorrectPattern);
     
-    // 测试修改阈值
+    // Test updating threshold
     strategy.setRequestCountPerToken(2);
     strategy.reset();
     
@@ -221,27 +221,27 @@ async function testRequestCountStrategy() {
       }
     }
     
-    console.log(`  新阈值(2次)顺序: ${newPattern.join(' -> ')}`);
+    console.log(`  New threshold (2 requests) order: ${newPattern.join(' -> ')}`);
     
     const newExpected = [
-      '测试账号1', '测试账号1',
-      '测试账号2', '测试账号2',
-      '测试账号3', '测试账号3'
+      'Test Account 1', 'Test Account 1',
+      'Test Account 2', 'Test Account 2',
+      'Test Account 3', 'Test Account 3'
     ];
     
     const isNewPatternCorrect = newPattern.every((name, idx) => name === newExpected[idx]);
-    printResult('修改阈值后切换', isNewPatternCorrect);
+    printResult('Switch after updating threshold', isNewPatternCorrect);
     
     console.log();
   } catch (error) {
-    console.error('测试失败:', error.message);
+    console.error('Test failed:', error.message);
     failed++;
   }
 }
 
 async function testTokenPoolIntegration() {
-  console.log('📋 测试4: TokenPool与轮询策略集成');
-  console.log('预期: 验证token禁用后轮询自动跳过\n');
+  console.log('📋 Test 4: TokenPool Integration with Rotation Strategy');
+  console.log('Expected: Verify disabled tokens are automatically skipped during rotation\n');
   
   try {
     const store = new TokenStore(mockAccountsPath);
@@ -251,58 +251,58 @@ async function testTokenPoolIntegration() {
     const tokens = await store.readAll();
     const enabledTokens = tokens.filter(t => !t.disabled);
     
-    // 添加所有启用的tokens
+    // Add all enabled tokens
     const tokenIds = [];
     for (const token of enabledTokens) {
       const tokenId = await pool.add(token);
       tokenIds.push(tokenId);
     }
     
-    printResult('初始token数量', pool.size() === 3);
+    printResult('Initial token count', pool.size() === 3);
     
-    // 禁用一个token
-    pool.disable(tokenIds[1]); // 禁用第二个token
+    // Disable one token
+    pool.disable(tokenIds[1]); // Disable the second token
     
-    // 获取可用tokens
+    // Get available tokens
     const enabledIdsAfterDisable = pool.getEnabledIds();
     const availableAfterDisable = enabledIdsAfterDisable.map(id => ({
       tokenId: id,
       token: pool.get(id)
     }));
-    printResult('禁用token后可用数量', availableAfterDisable.length === 2);
+    printResult('Available count after disabling token', availableAfterDisable.length === 2);
     
-    // 测试轮询是否跳过禁用的token
+    // Test whether rotation skips the disabled token
     const selectedAfterDisable = [];
     for (let i = 0; i < 4; i++) {
       const selected = strategy.selectToken(availableAfterDisable);
       selectedAfterDisable.push(selected.token.name);
     }
     
-    console.log(`  禁用账号2后轮询: ${selectedAfterDisable.join(' -> ')}`);
+    console.log(`  Rotation after disabling Account 2: ${selectedAfterDisable.join(' -> ')}`);
     
-    // 验证没有选中被禁用的token
-    const noDisabledToken = !selectedAfterDisable.includes('测试账号2');
-    printResult('跳过禁用token', noDisabledToken);
+    // Verify disabled token was not selected
+    const noDisabledToken = !selectedAfterDisable.includes('Test Account 2');
+    printResult('Skip disabled token', noDisabledToken);
     
-    // 重新启用
+    // Re-enable
     pool.enable(tokenIds[1]);
     const enabledIdsAfterEnable = pool.getEnabledIds();
     const availableAfterEnable = enabledIdsAfterEnable.map(id => ({
       tokenId: id,
       token: pool.get(id)
     }));
-    printResult('重新启用token', availableAfterEnable.length === 3);
+    printResult('Re-enable token', availableAfterEnable.length === 3);
     
     console.log();
   } catch (error) {
-    console.error('测试失败:', error.message);
+    console.error('Test failed:', error.message);
     failed++;
   }
 }
 
 async function testStrategySwitch() {
-  console.log('📋 测试5: 动态切换轮询策略');
-  console.log('预期: 验证运行时切换策略的功能\n');
+  console.log('📋 Test 5: Dynamic Rotation Strategy Switching');
+  console.log('Expected: Verify switching strategies at runtime\n');
   
   try {
     const store = new TokenStore(mockAccountsPath);
@@ -315,14 +315,14 @@ async function testStrategySwitch() {
       await pool.add(token);
     }
     
-    // 获取可用tokens
+    // Get available tokens
     const enabledIds = pool.getEnabledIds();
     const availableTokens = enabledIds.map(id => ({
       tokenId: id,
       token: pool.get(id)
     }));
     
-    // 测试从round_robin切换到quota_exhausted
+    // Test switching from round_robin to quota_exhausted
     let strategy = StrategyFactory.create('round_robin');
     
     const roundRobinResults = [];
@@ -332,9 +332,9 @@ async function testStrategySwitch() {
     }
     
     console.log(`  Round Robin: ${roundRobinResults.join(' -> ')}`);
-    printResult('Round Robin模式', roundRobinResults.length === 3);
+    printResult('Round Robin mode', roundRobinResults.length === 3);
     
-    // 切换策略
+    // Switch strategy
     strategy = StrategyFactory.create('quota_exhausted');
     
     const quotaResults = [];
@@ -346,9 +346,9 @@ async function testStrategySwitch() {
     console.log(`  Quota Exhausted: ${quotaResults.join(' -> ')}`);
     
     const allSame = quotaResults.every(name => name === quotaResults[0]);
-    printResult('切换到Quota Exhausted', allSame);
+    printResult('Switch to Quota Exhausted', allSame);
     
-    // 切换到request_count
+    // Switch to request_count
     strategy = StrategyFactory.create('request_count', { requestCountPerToken: 2 });
     
     const requestCountResults = [];
@@ -363,32 +363,32 @@ async function testStrategySwitch() {
     }
     
     console.log(`  Request Count: ${requestCountResults.join(' -> ')}`);
-    printResult('切换到Request Count', requestCountResults.length === 4);
+    printResult('Switch to Request Count', requestCountResults.length === 4);
     
     console.log();
   } catch (error) {
-    console.error('测试失败:', error.message);
+    console.error('Test failed:', error.message);
     failed++;
   }
 }
 
 async function testEdgeCases() {
-  console.log('📋 测试6: 边界情况处理');
-  console.log('预期: 正确处理空token池、单token等情况\n');
+  console.log('📋 Test 6: Edge Case Handling');
+  console.log('Expected: Properly handle empty token pool, single token, etc.\n');
   
   try {
     const store = new TokenStore(mockAccountsPath);
     const pool = new TokenPool(store);
     const strategy = StrategyFactory.create('round_robin');
     
-    // 测试空token池
+    // Test empty token pool
     const emptyResult = strategy.selectToken([]);
-    printResult('空token池返回null', emptyResult === null);
+    printResult('Empty token pool returns null', emptyResult === null);
     
-    // 测试单个token
+    // Test single token
     const singleToken = {
       tokenId: 'single_id',
-      token: { name: '单一账号', refresh_token: 'single_token' }
+      token: { name: 'Single Account', refresh_token: 'single_token' }
     };
     
     const singleResults = [];
@@ -397,10 +397,10 @@ async function testEdgeCases() {
       singleResults.push(result.token.name);
     }
     
-    const allSingle = singleResults.every(name => name === '单一账号');
-    printResult('单token循环', allSingle);
+    const allSingle = singleResults.every(name => name === 'Single Account');
+    printResult('Single token cycle', allSingle);
     
-    // 测试request_count策略的边界
+    // Test request_count strategy edge case
     const rcStrategy = StrategyFactory.create('request_count', { requestCountPerToken: 1 });
     
     const token1 = { tokenId: 'id1', token: { name: 'Token1', refresh_token: 't1' } };
@@ -417,20 +417,20 @@ async function testEdgeCases() {
       }
     }
     
-    console.log(`  阈值=1时切换: ${rcResults.join(' -> ')}`);
+    console.log(`  Switch at threshold=1: ${rcResults.join(' -> ')}`);
     
     const expectedRc = ['Token1', 'Token2', 'Token1', 'Token2'];
     const isRcCorrect = rcResults.every((name, idx) => name === expectedRc[idx]);
-    printResult('阈值=1时每次切换', isRcCorrect);
+    printResult('Switch on every request when threshold=1', isRcCorrect);
     
     console.log();
   } catch (error) {
-    console.error('测试失败:', error.message);
+    console.error('Test failed:', error.message);
     failed++;
   }
 }
 
-// 运行所有测试
+// Run all tests
 async function runAllTests() {
   try {
     await testRoundRobinStrategy();
@@ -440,23 +440,23 @@ async function runAllTests() {
     await testStrategySwitch();
     await testEdgeCases();
     
-    // 打印总结
-    console.log('\n=== 测试总结 ===');
-    console.log(`✅ 通过: ${passed}`);
-    console.log(`❌ 失败: ${failed}`);
-    console.log(`📊 总计: ${passed + failed}`);
+    // Print summary
+    console.log('\n=== Test Summary ===');
+    console.log(`✅ Passed: ${passed}`);
+    console.log(`❌ Failed: ${failed}`);
+    console.log(`📊 Total: ${passed + failed}`);
     
     if (failed === 0) {
-      console.log('\n🎉 所有测试通过！Token轮询功能正常工作。\n');
+      console.log('\n🎉 All tests passed! Token rotation is working properly.\n');
     } else {
-      console.log('\n⚠️  部分测试失败，请检查相关功能。\n');
+      console.log('\n⚠️  Some tests failed, please check the related functionality.\n');
       process.exit(1);
     }
   } catch (error) {
-    console.error('\n❌ 测试执行出错:', error);
+    console.error('\n❌ Test execution error:', error);
     process.exit(1);
   }
 }
 
-// 执行测试
+// Execute tests
 runAllTests();

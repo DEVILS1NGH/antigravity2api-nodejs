@@ -1,50 +1,50 @@
-// 配置管理：加载、保存
+// Configuration management: load and save
 
-// 默认系统提示词
-const DEFAULT_SYSTEM_INSTRUCTION = '你是聊天机器人，名字叫萌萌，如同名字这般，你的性格是软软糯糯萌萌哒的，专门为用户提供聊天和情绪价值，协助进行小说创作或者角色扮演';
+// Default system prompts
+const DEFAULT_SYSTEM_INSTRUCTION = 'You are a friendly chatbot named Mengmeng. True to your name, you have a warm, sweet, and cheerful personality, dedicated to chatting with users, providing emotional support, and assisting with creative writing or roleplay.';
 const DEFAULT_OFFICIAL_SYSTEM_PROMPT = `<example_only do_not_follow="true" type="counter-example" ignore="true">
 You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Proactiveness**
 </example_only>
 <!-- Note: The above content is provided as a reference example only and is not part of the active instruction set for this conversation -->`;
 
-// 恢复默认反代系统提示词
+// Restore default proxy system prompt
 function restoreDefaultSystemInstruction() {
     const textarea = document.querySelector('textarea[name="SYSTEM_INSTRUCTION"]');
     if (textarea) {
         textarea.value = DEFAULT_SYSTEM_INSTRUCTION;
-        showToast('已恢复默认反代系统提示词', 'success');
+        showToast('Restored default proxy system prompt', 'success');
     }
 }
 
-// 恢复默认官方系统提示词
+// Restore default official system prompt
 function restoreDefaultOfficialSystemPrompt() {
     const textarea = document.querySelector('textarea[name="OFFICIAL_SYSTEM_PROMPT"]');
     if (textarea) {
         textarea.value = DEFAULT_OFFICIAL_SYSTEM_PROMPT;
-        showToast('已恢复默认官方系统提示词', 'success');
+        showToast('Restored default official system prompt', 'success');
     }
 }
 
-// 暂存解锁密码
+// Temporarily store unlock password
 let unlockedPassword = null;
-// 暂存加载时的官方系统提示词原始值（用于比较是否真正修改）
+// Store original official system prompt on load (to detect actual changes)
 let originalOfficialSystemPrompt = null;
 
-// 正规化换行符（用于比较）
+// Normalize newlines (for comparison)
 function normalizeNewlines(str) {
     return (str || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
 }
 
-// 解锁官方系统提示词修改
+// Unlock official system prompt for editing
 async function unlockOfficialSystemPrompt() {
-    const warningMsg = '<span style="color:#ef4444;font-weight:bold;font-size:1rem;">⚠️ 警告！修改官方系统提示词可能会导致 429 错误！<br>是否确认更改？</span>';
+    const warningMsg = '<span style="color:#ef4444;font-weight:bold;font-size:1rem;">⚠️ Warning! Modifying the official system prompt may cause 429 errors!<br>Are you sure you want to proceed?</span>';
     const password = await showPasswordPrompt(warningMsg);
 
     if (password) {
-        // 暂存密码
+        // Store password temporarily
         unlockedPassword = password;
 
-        // 解锁界面
+        // Unlock UI
         const textarea = document.getElementById('officialSystemPrompt');
         const unlockBtn = document.getElementById('unlockOfficialBtn');
         const restoreBtn = document.getElementById('restoreOfficialBtn');
@@ -56,21 +56,21 @@ async function unlockOfficialSystemPrompt() {
         // CSS handles lock button visibility based on readonly state
         if (restoreBtn) restoreBtn.style.display = 'inline-flex';
 
-        showToast('已解锁，请谨慎修改', 'warning');
+        showToast('Unlocked. Please edit with caution', 'warning');
     }
 }
 
-// 处理上下文System开关变化
+// Handle Context System toggle change
 function handleContextSystemChange() {
     const useContextSystem = document.getElementById('useContextSystemPrompt');
     const mergeSystemPrompt = document.getElementById('mergeSystemPrompt');
 
     if (useContextSystem && mergeSystemPrompt) {
         if (useContextSystem.checked) {
-            // 开启上下文System时，合并提示词可以自由选择
+            // When Context System is enabled, Merge System Prompt can be toggled freely
             mergeSystemPrompt.disabled = false;
         } else {
-            // 关闭上下文System时，合并提示词自动关闭且禁用
+            // When Context System is disabled, Merge System Prompt is turned off and disabled
             mergeSystemPrompt.checked = false;
             mergeSystemPrompt.disabled = true;
         }
@@ -92,24 +92,24 @@ async function loadRotationStatus() {
         if (data.success) {
             const { strategy, requestCount, currentIndex } = data.data;
             const strategyNames = {
-                'round_robin': '均衡负载',
-                'quota_exhausted': '额度耗尽切换',
-                'request_count': '自定义次数'
+                'round_robin': 'Round Robin',
+                'quota_exhausted': 'Switch on Quota Exhausted',
+                'request_count': 'Custom Request Count'
             };
             const statusEl = document.getElementById('currentRotationInfo');
             if (statusEl) {
                 let statusText = `${strategyNames[strategy] || strategy}`;
                 if (strategy === 'request_count') {
-                    statusText += ` (每${requestCount}次)`;
+                    statusText += ` (every ${requestCount} requests)`;
                 }
                 if (Number.isInteger(currentIndex)) {
-                    statusText += ` | 当前索引: ${currentIndex}`;
+                    statusText += ` | Current index: ${currentIndex}`;
                 }
                 statusEl.textContent = statusText;
             }
         }
     } catch (error) {
-        console.error('加载轮询状态失败:', error);
+        console.error('Failed to load rotation status:', error);
     }
 }
 
@@ -163,7 +163,7 @@ async function loadConfig() {
                 if (form.elements['ALWAYS_USE_CREDITS']) form.elements['ALWAYS_USE_CREDITS'].checked = json.other.alwaysUseCredits || false;
             }
 
-            // 加载官方系统提示词
+            // Load official system prompt
             if (form.elements['OFFICIAL_SYSTEM_PROMPT']) {
                 if (env.OFFICIAL_SYSTEM_PROMPT !== undefined) {
                     form.elements['OFFICIAL_SYSTEM_PROMPT'].value = env.OFFICIAL_SYSTEM_PROMPT;
@@ -174,7 +174,7 @@ async function loadConfig() {
                 }
             }
 
-            // 更新合并提示词开关状态
+            // Update Merge System Prompt toggle state
             handleContextSystemChange();
             if (json.rotation) {
                 if (form.elements['ROTATION_STRATEGY']) {
@@ -187,22 +187,22 @@ async function loadConfig() {
             }
 
             loadRotationStatus();
-            // 默认只显示当前激活的设置分区（便于后续扩展）
+            // Show only the currently active settings section by default
             if (typeof setActiveSettingSection === 'function') {
                 setActiveSettingSection(activeSettingSectionId, false);
             }
             
-            // 加载IP封禁列表
+            // Load blocked IP list
             if (typeof loadBlockedIPs === 'function') {
                 loadBlockedIPs();
             }
-            // 加载白名单
+            // Load whitelist
             if (typeof loadWhitelistIPs === 'function') {
                 loadWhitelistIPs();
             }
         }
     } catch (error) {
-        showToast('加载配置失败: ' + error.message, 'error');
+        showToast('Failed to load settings: ' + error.message, 'error');
     }
 }
 
@@ -213,7 +213,7 @@ function setActiveSettingSection(id, scroll = true) {
     activeSettingSectionId = nextId;
     localStorage.setItem('activeSettingSectionId', activeSettingSectionId);
 
-    // 清理搜索状态，避免“只显示一个分区”和“搜索过滤”互相干扰
+    // Clear search state so single-section display and search filtering don't conflict
     const searchInput = document.getElementById('settingsSearch');
     if (searchInput && searchInput.value) {
         searchInput.value = '';
@@ -235,9 +235,9 @@ function setActiveSettingSection(id, scroll = true) {
         const el = document.getElementById(activeSettingSectionId);
         const container = document.getElementById('settingsPage');
         if (el && container) {
-            // 计算元素相对于容器的位置
+            // Compute element position relative to container
             const elTop = el.offsetTop;
-            // 滚动容器而不是整个页面
+            // Scroll the container rather than the entire page
             container.scrollTo({ top: elTop - 10, behavior: 'smooth' });
         }
     }
@@ -256,7 +256,7 @@ function filterSettings(query) {
     });
 }
 
-// 重新锁定官方系统提示词
+// Re-lock official system prompt
 function lockOfficialSystemPrompt() {
     const textarea = document.getElementById('officialSystemPrompt');
     const restoreBtn = document.getElementById('restoreOfficialBtn');
@@ -264,7 +264,7 @@ function lockOfficialSystemPrompt() {
     if (textarea) {
         textarea.readOnly = true;
         textarea.classList.remove('unlocked');
-        // 清除可能残留的内联样式
+        // Clear any leftover inline styles
         textarea.style.borderColor = '';
         textarea.style.backgroundColor = '';
     }
@@ -273,7 +273,7 @@ function lockOfficialSystemPrompt() {
         restoreBtn.style.display = 'none';
     }
 
-    // 清除暂存密码
+    // Clear temporarily stored password
     unlockedPassword = null;
 }
 
@@ -293,7 +293,7 @@ async function saveConfig(e) {
         rotation: {}
     };
 
-    // 处理checkbox：未选中的checkbox不会出现在FormData中
+    // Handle checkboxes: unchecked checkboxes do not appear in FormData
     jsonConfig.other.skipProjectIdFetch = form.elements['SKIP_PROJECT_ID_FETCH']?.checked || false;
     jsonConfig.other.useNativeAxios = form.elements['USE_NATIVE_AXIOS']?.checked || false;
     jsonConfig.api = { use: form.elements['API_USE']?.value || 'sandbox' };
@@ -337,7 +337,7 @@ async function saveConfig(e) {
                 jsonConfig.other.retryIntervalMs = Number.isNaN(num) ? undefined : num;
             }
             else if (key === 'SKIP_PROJECT_ID_FETCH' || key === 'USE_NATIVE_AXIOS' || key === 'USE_CONTEXT_SYSTEM_PROMPT' || key === 'MERGE_SYSTEM_PROMPT' || key === 'OFFICIAL_PROMPT_POSITION' || key === 'PASS_SIGNATURE_TO_CLIENT' || key === 'USE_FALLBACK_SIGNATURE' || key === 'CACHE_ALL_SIGNATURES' || key === 'CACHE_TOOL_SIGNATURES' || key === 'CACHE_IMAGE_SIGNATURES' || key === 'CACHE_THINKING' || key === 'FAKE_NON_STREAM' || key === 'ALWAYS_USE_CREDITS' || key === 'RETRY_POLL_TOKEN_WITH_QUOTA') {
-                // 跳过，已在上面处理
+                // Skip, already handled above
             }
             else if (key === 'ROTATION_STRATEGY') jsonConfig.rotation.strategy = value || undefined;
             else if (key === 'ROTATION_REQUEST_COUNT') jsonConfig.rotation.requestCount = parseInt(value) || undefined;
@@ -356,20 +356,20 @@ async function saveConfig(e) {
         }
     });
 
-    showLoading('正在保存配置...');
+    showLoading('Saving settings...');
 
-    // 检查官方系统提示词是否真正修改了
+    // Check whether the official system prompt actually changed
     const currentPrompt = envConfig.OFFICIAL_SYSTEM_PROMPT;
     const promptChanged = normalizeNewlines(currentPrompt) !== normalizeNewlines(originalOfficialSystemPrompt);
 
-    // 如果没有修改，从 envConfig 中删除，避免触发后端验证
+    // If unchanged, omit from envConfig to avoid triggering backend verification
     if (!promptChanged) {
         delete envConfig.OFFICIAL_SYSTEM_PROMPT;
     }
 
-    // 构建请求体
+    // Build request payload
     const payload = { env: envConfig, json: jsonConfig };
-    // 如果官方系统提示词真正修改了且已解锁有密码，带上密码用于后端验证
+    // Include unlock password for backend verification if official prompt was modified
     if (promptChanged && unlockedPassword) {
         payload.password = unlockedPassword;
     }
@@ -395,7 +395,7 @@ async function saveConfig(e) {
             });
         }
 
-        // 保存安全配置
+        // Save security configuration
         const blockingEnabled = document.getElementById('blockingEnabled')?.checked;
         if (blockingEnabled !== undefined) {
             try {
@@ -410,26 +410,26 @@ async function saveConfig(e) {
                     })
                 });
             } catch (error) {
-                console.error('保存安全配置失败:', error);
+                console.error('Failed to save security config:', error);
             }
         }
 
         hideLoading();
         if (data.success) {
-            showToast('配置已保存', 'success');
-            // 保存成功后重新锁定
+            showToast('Settings saved', 'success');
+            // Re-lock after saving successfully
             lockOfficialSystemPrompt();
             loadConfig();
         } else {
-            showToast(data.message || '保存失败', 'error');
+            showToast(data.message || 'Failed to save', 'error');
         }
     } catch (error) {
         hideLoading();
-        showToast('保存失败: ' + error.message, 'error');
+        showToast('Failed to save: ' + error.message, 'error');
     }
 }
 
-// 页面初始化：默认只显示一个设置分区
+// Page init: show only one settings section by default
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof setActiveSettingSection === 'function') {
         setActiveSettingSection(activeSettingSectionId, false);

@@ -10,12 +10,12 @@ import { buildAxiosRequestConfig } from './httpClient.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * 统一请求器管理类
+ * Unified requester manager
  *
- * - 根据 config.useNativeAxios 决定使用 TLS 指纹请求器还是 axios
- * - 支持热重载：调用 reload() 后下次请求时重新初始化
- * - TLS 请求器初始化失败时自动降级到 axios
- * - sendLog 等需要发送二进制 body 的场景，请直接使用 axios（TLS 请求器暂不支持二进制 body）
+ * - Decides between the TLS fingerprint requester and axios based on config.useNativeAxios
+ * - Supports hot reload: calling reload() triggers re-initialization on the next request
+ * - Automatically falls back to axios if TLS requester initialization fails
+ * - For scenarios requiring a binary body such as sendLog, use axios directly (TLS requester does not currently support binary bodies)
  */
 class RequesterManager {
   constructor() {
@@ -24,7 +24,7 @@ class RequesterManager {
     this._initPromise = null;
   }
 
-  // ==================== 初始化 ====================
+  // ==================== Initialization ====================
 
   _ensureInit() {
     if (this._initPromise) return this._initPromise;
@@ -35,7 +35,7 @@ class RequesterManager {
   async _doInit() {
     if (config.useNativeAxios === true) {
       this._tlsInitFailed = true;
-      logger.info('[RequesterManager] 使用原生 axios 请求');
+      logger.info('[RequesterManager] Using native axios for requests');
       return;
     }
 
@@ -51,33 +51,33 @@ class RequesterManager {
         proxy: config.proxy || null,
       });
 
-      // 主动探测二进制文件是否可执行（捕获架构不匹配、文件损坏等运行时错误）
+      // Proactively probe whether the binary is executable (catches architecture mismatch, corrupted binary, etc.)
       await this._probeBinary(requester.binaryPath);
 
       this._tlsRequester = requester;
-      logger.info('[RequesterManager] 使用 FingerprintRequester（TLS 指纹）请求');
+      logger.info('[RequesterManager] Using FingerprintRequester (TLS fingerprint) for requests');
     } catch (error) {
-      logger.warn('[RequesterManager] FingerprintRequester 初始化失败，自动降级使用 axios:', error.message);
+      logger.warn('[RequesterManager] FingerprintRequester initialization failed, falling back to axios:', error.message);
       this._tlsInitFailed = true;
     }
   }
 
   /**
-   * 主动 spawn 二进制文件做可执行性探测，立即关闭进程
-   * 若 spawn 失败（UNKNOWN / ENOENT 等）则抛出错误，触发降级
+   * Proactively spawn the binary to probe executability, then terminate immediately
+   * Throws an error if spawn fails (UNKNOWN / ENOENT, etc.), triggering fallback
    */
   _probeBinary(binaryPath) {
     return new Promise((resolve, reject) => {
       const proc = spawn(binaryPath);
       proc.on('error', (err) => {
-        reject(new Error(`二进制文件无法执行: ${err.message}`));
+        reject(new Error(`Binary cannot be executed: ${err.message}`));
       });
-      // 进程成功启动后立即关闭，不需要等待它完成
+      // Terminate immediately once spawned; no need to wait for completion
       proc.on('spawn', () => {
         proc.kill();
         resolve();
       });
-      // 兼容旧版 Node（无 'spawn' 事件）：stdout 有数据也说明进程已启动
+      // Compatibility with older Node versions (no 'spawn' event): stdout data also confirms process started
       proc.stdout.once('data', () => {
         proc.kill();
         resolve();
@@ -91,7 +91,7 @@ class RequesterManager {
   }
 
   /**
-   * 热重载：重置请求器，下次请求时按最新 config 重新初始化
+   * Hot reload: reset the requester so it re-initializes with the latest config on the next request
    */
   reload() {
     if (this._tlsRequester) {
@@ -100,11 +100,11 @@ class RequesterManager {
     this._tlsRequester = null;
     this._tlsInitFailed = false;
     this._initPromise = null;
-    logger.info('[RequesterManager] 请求器已重置，将在下次请求时按新配置重新初始化');
+    logger.info('[RequesterManager] Requester reset; will re-initialize with new configuration on next request');
   }
 
   /**
-   * 关闭所有活跃进程（进程退出时调用）
+   * Close all active child processes (called on process exit)
    */
   close() {
     if (this._tlsRequester) {
@@ -112,19 +112,19 @@ class RequesterManager {
     }
   }
 
-  // ==================== 核心请求方法 ====================
+  // ==================== Core Request Methods ====================
 
   /**
-   * 发送普通 JSON 请求（非流式）
+   * Send a standard JSON request (non-streaming)
    *
    * @param {string} url
    * @param {object} options
    * @param {string}  [options.method='POST']
    * @param {object}  [options.headers={}]
-   * @param {*}       [options.body=null]  - JSON 对象或字符串；二进制 body 请直接使用 axios
-   * @param {number[]} [options.okStatus]  - 认为成功的状态码列表，默认 [200]
+   * @param {*}       [options.body=null]  - JSON object or string; use axios directly for binary bodies
+   * @param {number[]} [options.okStatus]  - List of status codes treated as success, default [200]
    * @returns {Promise<{ status: number, data: any }>}
-   *   data 为解析后的 JSON 对象（axios 路径）或原始文本（解析失败时）
+   *   data is the parsed JSON object (axios path) or raw text (if JSON parsing fails)
    */
   async fetch(url, { method = 'POST', headers = {}, body = null, okStatus = [200] } = {}) {
     await this._ensureInit();
@@ -136,7 +136,7 @@ class RequesterManager {
   }
 
   /**
-   * 发送流式 SSE 请求
+   * Send a streaming SSE request
    *
    * @param {string} url
    * @param {object} options
@@ -144,7 +144,7 @@ class RequesterManager {
    * @param {object}  [options.headers={}]
    * @param {*}       [options.body=null]
    * @returns {Promise<StreamResponse | AxiosStreamResponse>}
-   *   两者均实现 onStart/onData/onEnd/onError 链式调用接口
+   *   Both implement the chainable onStart/onData/onEnd/onError interface
    */
   async fetchStream(url, { method = 'POST', headers = {}, body = null } = {}) {
     await this._ensureInit();
@@ -155,7 +155,7 @@ class RequesterManager {
     return this._tlsFetchStream(url, { method, headers, body });
   }
 
-  // ==================== TLS 路径 ====================
+  // ==================== TLS Path ====================
 
   async _tlsFetch(url, { method, headers, body, okStatus }) {
     const reqConfig = this._buildTlsConfig(method, headers, body);
@@ -191,7 +191,7 @@ class RequesterManager {
       proxy: config.proxy || null,
     };
     if (body !== null) {
-      // Buffer / Uint8Array 直接传递（但 TLS 请求器目前不支持二进制 body，调用方应使用 axios）
+      // Pass Buffer / Uint8Array directly (TLS requester currently does not support binary body; callers should use axios)
       if (Buffer.isBuffer(body) || body instanceof Uint8Array) {
         reqConfig.body = body;
       } else {
@@ -201,7 +201,7 @@ class RequesterManager {
     return reqConfig;
   }
 
-  // ==================== axios 路径 ====================
+  // ==================== axios Path ====================
 
   async _axiosFetch(url, { method, headers, body, okStatus }) {
     const axiosConfig = buildAxiosRequestConfig({
@@ -212,7 +212,7 @@ class RequesterManager {
       timeout: config.timeout,
     });
 
-    // 对于非 2xx 状态码，axios 默认会抛错；这里统一处理
+    // axios throws by default on non-2xx status codes; handle uniformly here
     axiosConfig.validateStatus = (status) => true;
 
     const response = await axios(axiosConfig);
@@ -228,8 +228,8 @@ class RequesterManager {
   }
 
   /**
-   * axios 流式 SSE 路径
-   * 返回一个实现了 onStart/onData/onEnd/onError 接口的对象，与 TLS StreamResponse 兼容
+   * axios streaming SSE path
+   * Returns an object implementing onStart/onData/onEnd/onError, compatible with TLS StreamResponse
    */
   _axiosFetchStream(url, { method, headers, body }) {
     const streamResponse = new AxiosStreamResponse();
@@ -283,7 +283,7 @@ class RequesterManager {
 // ==================== AxiosStreamResponse ====================
 
 /**
- * axios 流式响应包装，接口与 src/requester.js 中的 StreamResponse 保持一致
+ * axios streaming response wrapper matching the StreamResponse interface in src/requester.js
  */
 class AxiosStreamResponse {
   constructor() {
@@ -302,6 +302,6 @@ class AxiosStreamResponse {
   onError(callback) { this._onError = callback; return this; }
 }
 
-// ==================== 单例导出 ====================
+// ==================== Singleton Export ====================
 
 export default new RequesterManager();

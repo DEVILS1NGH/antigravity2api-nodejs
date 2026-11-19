@@ -5,7 +5,7 @@
       "127.0.0.1",
       "::1"
     ],
-    "comment": "白名单IP永远不会被封禁，内网IP段自动白名单无需配置"
+    "comment": "Whitelisted IPs are never blocked; private/LAN IP ranges are automatically whitelisted"
   },
   "blocking": {
     "enabled": true,
@@ -14,6 +14,6 @@
     "maxTempBlocksBeforePermanent": 10,
     "violationWindow": 300000,
     "violationDecayTime": 1800000,
-    "comment": "封禁配置：临时封禁1小时，5分钟内50次违规触发临时封禁，10次临时封禁触发永久封禁"
+    "comment": "Blocking config: 1h temp block after 50 violations within 5 minutes; 10 temp blocks trigger a permanent ban"
   }
 }

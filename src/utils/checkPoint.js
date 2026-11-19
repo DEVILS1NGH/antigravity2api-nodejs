@@ -9,7 +9,7 @@ export function generateCheckpointBody(token){
                 {
                     role: "user",
                     parts: [{
-                        text: `Step Id: 0\n\n<USER_REQUEST>\n你是谁？\n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: ${generateCreatedAt}. This is the latest source of truth for time; do not attempt to get the time any other way.\n\nThe user's current state is as follows:\nNo browser pages are currently open.\n</ADDITIONAL_METADATA>`
+                        text: `Step Id: 0\n\n<USER_REQUEST>\nWho are you?\n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: ${generateCreatedAt}. This is the latest source of truth for time; do not attempt to get the time any other way.\n\nThe user's current state is as follows:\nNo browser pages are currently open.\n</ADDITIONAL_METADATA>`
                     }]
                 },
                 {
@@ -27,7 +27,7 @@ export function generateCheckpointBody(token){
                 {
                     role: "model",
                     parts: [{
-                        text: "你好！我是 **Antigravity**，一个由 Google DeepMind 的 Advanced Agentic Coding 团队开发的 AI 编程助手。\n\n我可以帮助你完成各种编程任务，包括：\n\n- 🛠️ **创建新项目** — 从零开始搭建应用程序或网站\n- 🐛 **调试和修复代码** — 查找并修复代码中的问题\n- ✏️ **修改和重构代码** — 改进现有代码的结构和质量\n- 🔍 **代码分析** — 理解和解释代码逻辑\n- 🌐 **网页开发** — 构建美观、现代的 Web 应用\n- 📄 **文档和规划** — 编写文档和制定实施计划\n- 🖥️ **运行命令** — 在你的系统上执行终端命令\n- 🔎 **网络搜索** — 查找技术文档和解决方案\n\n有什么我可以帮你的吗？😊"
+                        text: "Hello! I'm **Antigravity**, an AI coding assistant developed by the Advanced Agentic Coding team at Google DeepMind.\n\nI can help you with a variety of coding tasks, including:\n\n- 🛠️ **Creating new projects** — Building applications or websites from scratch\n- 🐛 **Debugging and fixing code** — Finding and resolving issues in your codebase\n- ✏️ **Modifying and refactoring code** — Improving the structure and quality of existing code\n- 🔍 **Code analysis** — Understanding and explaining code logic\n- 🌐 **Web development** — Building modern, attractive web applications\n- 📄 **Documentation and planning** — Writing docs and creating implementation plans\n- 🖥️ **Running commands** — Executing terminal commands on your system\n- 🔎 **Web search** — Looking up technical documentation and solutions\n\nHow can I help you today? 😊"
                     }]
                 },
                 {

@@ -5,27 +5,27 @@ import { randomUUID } from 'crypto';
 
 async function testSendLog() {
   try {
-    // 获取token
+    // Get token
     const token = await tokenManager.getToken();
     if (!token) {
-      console.error('无可用token');
+      console.error('No available token');
       return;
     }
-    console.log('获取token成功');
+    console.log('Successfully obtained token');
 
-    // 读取data.bin文件
+    // Read data.bin file
     const buffer = readFileSync('data-reserialized.bin');
-    console.log(`读取data.bin成功，大小: ${buffer.length} 字节`);
+    console.log(`Successfully read data.bin, size: ${buffer.length} bytes`);
 
-    // 生成随机参数
+    // Generate random parameters
     const num = Math.floor(Math.random() * 100);
     const trajectoryId = randomUUID();
 
-    // 调用sendLog
+    // Call sendLog
     await sendLog(token, num, trajectoryId, buffer);
-    console.log('sendLog调用成功');
+    console.log('sendLog call succeeded');
   } catch (error) {
-    console.error('测试失败:', error.message);
+    console.error('Test failed:', error.message);
   }
 }
 

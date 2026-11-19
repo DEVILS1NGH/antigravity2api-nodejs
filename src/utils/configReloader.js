@@ -2,8 +2,8 @@ import config, { getConfigJson, getUpstreamConfig, buildConfig } from '../config
 import requesterManager from './requesterManager.js';
 
 /**
- * 重新加载配置到 config 对象
- * 同时重置请求器，使新的 useNativeAxios / proxy / timeout 配置生效
+ * Reload configuration into the config object
+ * Also resets the requester so new useNativeAxios / proxy / timeout settings take effect
  */
 export function reloadConfig() {
   const newConfig = buildConfig(getConfigJson(), getUpstreamConfig());

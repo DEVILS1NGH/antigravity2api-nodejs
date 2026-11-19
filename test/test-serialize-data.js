@@ -18,4 +18,4 @@ const message = TelemetryBatch.create(jsonData);
 const buffer = TelemetryBatch.encode(message).finish();
 
 writeFileSync(outputBinPath, buffer);
-console.log('序列化完成，结果已写入:', outputBinPath);
+console.log('Serialization complete, output written to:', outputBinPath);

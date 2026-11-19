@@ -1,5 +1,5 @@
 /**
- * SSE 流式响应和心跳机制工具模块
+ * SSE streaming response and heartbeat utility module
  */
 
 import config from '../config/config.js';
@@ -8,14 +8,14 @@ import { DEFAULT_HEARTBEAT_INTERVAL } from '../constants/index.js';
 
 export { with429Retry } from './handlers/common/retry.js';
 
-// ==================== 心跳机制（防止 CF 超时） ====================
+// ==================== Heartbeat Mechanism (prevents Cloudflare timeout) ====================
 const HEARTBEAT_INTERVAL = config.server.heartbeatInterval || DEFAULT_HEARTBEAT_INTERVAL;
 const SSE_HEARTBEAT = Buffer.from(': heartbeat\n\n');
 
 /**
- * 创建心跳定时器
- * @param {Response} res - Express响应对象
- * @returns {NodeJS.Timeout} 定时器
+ * Create a heartbeat interval timer
+ * @param {Response} res - Express response object
+ * @returns {NodeJS.Timeout} Timer handle
  */
 export const createHeartbeat = (res) => {
   const timer = setInterval(() => {
@@ -32,13 +32,13 @@ export const createHeartbeat = (res) => {
   return timer;
 };
 
-// ==================== 预编译的常量字符串（避免重复创建） ====================
+// ==================== Pre-allocated Constant Buffers (avoid repeated allocation) ====================
 const SSE_PREFIX = Buffer.from('data: ');
 const SSE_SUFFIX = Buffer.from('\n\n');
 const SSE_DONE = Buffer.from('data: [DONE]\n\n');
 
 /**
- * 生成响应元数据
+ * Generate response metadata
  * @returns {{id: string, created: number}}
  */
 export const createResponseMeta = () => ({
@@ -47,8 +47,8 @@ export const createResponseMeta = () => ({
 });
 
 /**
- * 设置流式响应头
- * @param {Response} res - Express响应对象
+ * Set SSE streaming response headers
+ * @param {Response} res - Express response object
  */
 export const setStreamHeaders = (res) => {
   res.setHeader('Content-Type', 'text/event-stream');
@@ -58,17 +58,17 @@ export const setStreamHeaders = (res) => {
   res.flushHeaders();
 };
 
-// ==================== 对象池（减少 GC） ====================
+// ==================== Object Pool (reduces GC pressure) ====================
 const chunkPool = [];
 
 /**
- * 从对象池获取 chunk 对象
+ * Acquire a chunk object from the pool
  * @returns {Object}
  */
 export const getChunkObject = () => chunkPool.pop() || { choices: [{ index: 0, delta: {}, finish_reason: null }] };
 
 /**
- * 释放 chunk 对象回对象池
+ * Release a chunk object back to the pool
  * @param {Object} obj
  */
 export const releaseChunkObject = (obj) => {
@@ -79,22 +79,22 @@ export const releaseChunkObject = (obj) => {
 registerMemoryPoolCleanup(chunkPool, () => memoryManager.getPoolSizes().chunk);
 
 /**
- * 获取当前对象池大小（用于监控）
+ * Get current chunk pool size (for monitoring)
  * @returns {number}
  */
 export const getChunkPoolSize = () => chunkPool.length;
 
 /**
- * 清空对象池
+ * Clear the chunk pool
  */
 export const clearChunkPool = () => {
   chunkPool.length = 0;
 };
 
 /**
- * 零拷贝写入流式数据
- * @param {Response} res - Express响应对象
- * @param {Object} data - 要发送的数据
+ * Write streaming SSE data without extra buffer copies
+ * @param {Response} res - Express response object
+ * @param {Object} data - Payload to send
  */
 export const writeStreamData = (res, data) => {
   const json = JSON.stringify(data);
@@ -107,8 +107,8 @@ export const writeStreamData = (res, data) => {
 };
 
 /**
- * 结束流式响应
- * @param {Response} res - Express响应对象
+ * End the streaming response
+ * @param {Response} res - Express response object
  */
 export const endStream = (res, isWriteDone = true) => {
   if (res.writableEnded) return;

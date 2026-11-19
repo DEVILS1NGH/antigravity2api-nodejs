@@ -6,7 +6,7 @@ import { hasOtherAvailableModelGroups, getAvailableModelGroups } from '../../../
 import logger from '../../../utils/logger.js';
 
 /**
- * 重试次数规范化工具
+ * Normalize retry count
  * @param {any} retryTimes
  * @returns {number}
  */
@@ -16,7 +16,7 @@ export function getSafeRetries(retryTimes) {
 }
 
 /**
- * 固定重试间隔规范化工具
+ * Normalize fixed retry interval
  * @param {any} retryIntervalMs
  * @returns {number}
  */
@@ -115,8 +115,8 @@ function collectRetryHintsFromObject(obj, hints) {
 }
 
 /**
- * 从上游错误响应体中提取重试提示。
- * 没有显式 retryDelay / quotaResetDelay / quotaResetTimeStamp 时返回 hasRetryHint=false。
+ * Extract retry hints from an upstream error response body.
+ * Returns hasRetryHint=false when no explicit retryDelay / quotaResetDelay / quotaResetTimeStamp is present.
  * @param {Error} error
  * @returns {{body: any, details: Array, explicitDelayMs: number|null, resetTimestamp: number|null, reason: string|null, hasRetryHint: boolean}}
  */
@@ -176,8 +176,7 @@ function hasQuotaExhaustionSignal(error, hint) {
     text.includes('resource_exhausted') ||
     text.includes('limit exceeded') ||
     text.includes('rate limit') ||
-    text.includes('too many requests') ||
-    text.includes('额度')
+    text.includes('too many requests')
   );
 }
 
@@ -222,26 +221,26 @@ async function applyLongQuotaCooldown({ options, loggerPrefix, modelId, hint, th
   const thresholdMinutes = Math.round(thresholdMs / 1000 / 60);
 
   logger.warn(
-    `${loggerPrefix}[长冷却] 收到 429 额度耗尽，恢复时间约 ${delayMinutes} 分钟后，` +
-    `超过阈值(${thresholdMinutes}分钟)，禁用 token ${tokenId} 的 ${groupKey} 系列`
+    `${loggerPrefix}[Long Cooldown] Received 429 quota exhausted; resets in ~${delayMinutes} min, ` +
+    `exceeding threshold (${thresholdMinutes} min); disabling ${groupKey} series for token ${tokenId}`
   );
 
   tokenCooldownManager.setCooldown(tokenId, modelId, cooldownUntil);
 
   if (!hasOtherAvailableModelGroups(tokenId)) {
-    logger.warn(`${loggerPrefix}Token ${tokenId} 的所有核心模型组都已禁用，标记为配额耗尽`);
+    logger.warn(`${loggerPrefix}All core model groups disabled for token ${tokenId}; marking quota exhausted`);
     const tokenManager = options.tokenManager || null;
     const token = getCurrentToken(options);
     if (tokenManager && token) {
       try {
         await tokenManager.markTokenQuotaExhausted(token);
       } catch (error) {
-        logger.error(`${loggerPrefix}标记 token 配额耗尽失败: ${error.message}`);
+        logger.error(`${loggerPrefix}Failed to mark token quota exhausted: ${error.message}`);
       }
     }
   } else {
     const availableGroups = getAvailableModelGroups(tokenId);
-    logger.info(`${loggerPrefix}Token ${tokenId} 仍有其他可用模型组: ${availableGroups.join(', ')}`);
+    logger.info(`${loggerPrefix}Token ${tokenId} still has other available model groups: ${availableGroups.join(', ')}`);
   }
 }
 
@@ -256,17 +255,17 @@ function getStatus(error) {
 }
 
 /**
- * 带 429/503 重试的执行器。
- * 核心策略：
- * - 429 只有上游错误响应体能提取到等待间隔/恢复时间时才重试。
- * - 503 容量/资源临时不可用直接按固定间隔重试，不依赖上游等待提示。
- * - 实际等待时间使用配置的固定间隔，避免短间隔把 503 打成 429。
- * - 长时间 429 额度耗尽会进入模型组冷却；只有开启重试轮询可用 token 时才继续尝试。
+ * Executor with 429/503 retry support.
+ * Core strategy:
+ * - 429 only retries when a wait interval / reset time can be extracted from the upstream error body.
+ * - 503 (temporary capacity/resource unavailability) retries at a fixed interval without relying on upstream hints.
+ * - Uses the configured fixed interval for actual waits to avoid turning 503 bursts into 429s.
+ * - Long 429 quota exhaustion puts the model group into cooldown; continues only when token polling on retry is enabled.
  *
- * @param {Function} fn - 要执行的异步函数，接收 attempt 和 shouldUseCredits 参数
- * @param {number} maxRetries - 最大重试次数
- * @param {Object|string} options - 可选参数或旧版 loggerPrefix
- * @param {Function|null} legacyOnAttempt - 旧版调用方式的尝试回调
+ * @param {Function} fn - Async function to execute, receiving (attempt, shouldUseCredits)
+ * @param {number} maxRetries - Maximum retry count
+ * @param {Object|string} options - Options object or legacy loggerPrefix string
+ * @param {Function|null} legacyOnAttempt - Legacy attempt callback
  * @returns {Promise<any>}
  */
 export async function with429Retry(fn, maxRetries, options = {}, legacyOnAttempt = null) {
@@ -298,7 +297,7 @@ export async function with429Retry(fn, maxRetries, options = {}, legacyOnAttempt
       const previousTokenId = getCurrentTokenId(retryOptions);
 
       if (status === 429 && !hint.hasRetryHint) {
-        logger.warn(`${loggerPrefix}收到 429，但错误响应体未提供等待间隔/恢复时间，按不可重试处理`);
+        logger.warn(`${loggerPrefix}Received 429 without a wait interval or reset time in error body; treating as non-retryable`);
         throw error;
       }
 
@@ -320,14 +319,14 @@ export async function with429Retry(fn, maxRetries, options = {}, legacyOnAttempt
       }
 
       const hintText = hint.hasRetryHint
-        ? `（上游提示≈${hint.explicitDelayMs}ms）`
-        : '（上游未提示等待时间）';
+        ? ` (upstream hint ~${hint.explicitDelayMs}ms)`
+        : ' (no upstream wait hint)';
 
       logger.warn(
-        `${loggerPrefix}收到 ${errorType}，等待固定间隔 ${retryIntervalMs}ms 后进行第 ${nextAttempt} 次重试（共 ${retries} 次）` +
+        `${loggerPrefix}Received ${errorType}, waiting fixed interval ${retryIntervalMs}ms before retry ${nextAttempt}/${retries}` +
         hintText +
-        (shouldUseCredits ? '（使用积分）' : '') +
-        (canPollTokenForRetry ? '（重试前重新轮询可用Token）' : '')
+        (shouldUseCredits ? ' (using credits)' : '') +
+        (canPollTokenForRetry ? ' (polling for available token before retry)' : '')
       );
 
       await sleep(retryIntervalMs);
@@ -344,7 +343,7 @@ export async function with429Retry(fn, maxRetries, options = {}, legacyOnAttempt
       });
 
       if (!prepared) {
-        logger.warn(`${loggerPrefix}重试前未找到对模型 ${modelId || 'unknown'} 可用的 token，终止重试`);
+        logger.warn(`${loggerPrefix}No available token found for model ${modelId || 'unknown'} before retry; aborting retries`);
         throw error;
       }
 

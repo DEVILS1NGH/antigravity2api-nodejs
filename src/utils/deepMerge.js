@@ -1,5 +1,5 @@
 /**
- * 深度合并对象，保留未修改的字段
+ * Deeply merge objects while preserving unmodified fields
  */
 export function deepMerge(target, source) {
   const result = { ...target };

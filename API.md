@@ -1,84 +1,92 @@
-# API 使用文档
+# API Documentation
 
-本文档介绍如何使用 Antigravity2API 提供的 OpenAI 兼容 API。
+This guide explains how to use the OpenAI, Claude, Gemini, SD WebUI, and Admin APIs provided by **Antigravity2API**.
 
-## 基础配置
+## Base Configuration
 
-所有 API 请求需要在 Header 中携带 API Key：
+All `/v1/*`, `/v1beta/*`, and `/cli/*` API requests require your API key in the `Authorization` header (or `x-api-key` for Claude / `key` query param for Gemini):
 
 ```
 Authorization: Bearer YOUR_API_KEY
 ```
 
-默认服务地址：`http://localhost:8045`
+Default base URL: `http://localhost:8045`
 
-## 目录
+## Table of Contents
 
-- [获取模型列表](#获取模型列表)
-- [聊天补全](#聊天补全)
-- [工具调用](#工具调用function-calling)
-- [图片输入](#图片输入多模态)
-- [图片生成](#图片生成)
-- [思维链模型](#思维链模型)
-- [SD WebUI 兼容 API](#sd-webui-兼容-api)
-- [管理 API](#管理-api)
-- [使用示例](#使用示例)
+- [List Models](#list-models)
+- [Chat Completions](#chat-completions)
+- [Function Calling (Tools)](#function-calling-tools)
+- [Multimodal Image Input](#multimodal-image-input)
+- [Image Generation](#image-generation)
+- [Thinking / Reasoning Models](#thinking--reasoning-models)
+- [Gemini CLI Endpoints](#gemini-cli-endpoints)
+- [SD WebUI Compatible API](#sd-webui-compatible-api)
+- [Admin API](#admin-api)
+- [SDK Examples](#sdk-examples)
+- [Advanced Options](#advanced-options)
 
-## 获取模型列表
+---
+
+## List Models
 
 ```bash
 curl http://localhost:8045/v1/models \
   -H "Authorization: Bearer sk-text"
 ```
 
-**说明**：模型列表会缓存 1 小时（可通过 `config.json` 的 `cache.modelListTTL` 配置），减少 API 请求。
+The model list is cached for 1 hour by default (configurable via `cache.modelListTTL` in `config.json`) and includes all latest Gemini 4, Gemini 3.8/3.6/3.5/3.1/3.0, Nano Banana image, Omni Flash, Gemini 2.5, specialized Gemini, and Claude models.
 
-## 聊天补全
+---
 
-### 流式响应
+## Chat Completions
+
+### Streaming Response
 
 ```bash
 curl http://localhost:8045/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-text" \
   -d '{
-    "model": "gemini-2.0-flash-exp",
-    "messages": [{"role": "user", "content": "你好"}],
+    "model": "gemini-4-hydrogen",
+    "messages": [{"role": "user", "content": "Hello!"}],
     "stream": true
   }'
 ```
 
-### 非流式响应
+### Non-Streaming Response
 
 ```bash
 curl http://localhost:8045/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-text" \
   -d '{
-    "model": "gemini-2.0-flash-exp",
-    "messages": [{"role": "user", "content": "你好"}],
+    "model": "gemini-4-hydrogen",
+    "messages": [{"role": "user", "content": "Hello!"}],
     "stream": false
   }'
 ```
 
-## 工具调用（Function Calling）
+---
+
+## Function Calling (Tools)
 
 ```bash
 curl http://localhost:8045/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-text" \
   -d '{
-    "model": "gemini-2.0-flash-exp",
-    "messages": [{"role": "user", "content": "北京天气怎么样"}],
+    "model": "gemini-4-argon",
+    "messages": [{"role": "user", "content": "What is the weather in Tokyo?"}],
     "tools": [{
       "type": "function",
       "function": {
         "name": "get_weather",
-        "description": "获取天气信息",
+        "description": "Get current weather information",
         "parameters": {
           "type": "object",
           "properties": {
-            "location": {"type": "string", "description": "城市名称"}
+            "location": {"type": "string", "description": "City name"}
           },
           "required": ["location"]
         }
@@ -87,20 +95,22 @@ curl http://localhost:8045/v1/chat/completions \
   }'
 ```
 
-## 图片输入（多模态）
+---
 
-支持 Base64 编码的图片输入，兼容 OpenAI 的多模态格式：
+## Multimodal Image Input
+
+Supports Base64-encoded image inputs in standard OpenAI multimodal format:
 
 ```bash
 curl http://localhost:8045/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-text" \
   -d '{
-    "model": "gemini-2.0-flash-exp",
+    "model": "gemini-3.8-flash",
     "messages": [{
       "role": "user",
       "content": [
-        {"type": "text", "text": "这张图片里有什么？"},
+        {"type": "text", "text": "What is in this image?"},
         {
           "type": "image_url",
           "image_url": {
@@ -113,29 +123,30 @@ curl http://localhost:8045/v1/chat/completions \
   }'
 ```
 
-### 支持的图片格式
-
+### Supported Image Formats
 - JPEG/JPG (`data:image/jpeg;base64,...`)
 - PNG (`data:image/png;base64,...`)
 - GIF (`data:image/gif;base64,...`)
 - WebP (`data:image/webp;base64,...`)
 
-## 图片生成
+---
 
-支持使用 `gemini-3-pro-image` 模型生成图片，生成的图片会以 Markdown 格式返回：
+## Image Generation
+
+Generate images with Gemini Image / Nano Banana models (`gemini-nano-banana-2.1`, `gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image`, `gemini-3-pro-image`, `gemini-2.5-flash-image`, plus `-2K` and `-4K` resolution suffixes). Generated images are returned as Markdown image links:
 
 ```bash
 curl http://localhost:8045/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-text" \
   -d '{
-    "model": "gemini-3-pro-image",
-    "messages": [{"role": "user", "content": "画一只可爱的猫"}],
+    "model": "gemini-nano-banana-2.1",
+    "messages": [{"role": "user", "content": "Draw a cute cat in watercolor style"}],
     "stream": false
   }'
 ```
 
-**响应示例**：
+**Response Example**:
 ```json
 {
   "choices": [{
@@ -147,40 +158,44 @@ curl http://localhost:8045/v1/chat/completions \
 }
 ```
 
-**注意**：
-- 生成的图片会保存到 `public/images/` 目录
-- 需要配置 `IMAGE_BASE_URL` 环境变量以返回正确的图片 URL
+**Notes**:
+- Generated images are saved under `public/images/`.
+- Set `IMAGE_BASE_URL` in `.env` so returned image URLs use your public domain.
 
-## 请求参数说明
+---
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `model` | string | ✅ | 模型名称 |
-| `messages` | array | ✅ | 对话消息列表 |
-| `stream` | boolean | ❌ | 是否流式响应，默认 false |
-| `temperature` | number | ❌ | 温度参数，默认 1 |
-| `top_p` | number | ❌ | Top P 参数，默认 1 |
-| `top_k` | number | ❌ | Top K 参数，默认 50 |
-| `max_tokens` | number | ❌ | 最大 token 数，默认 32000 |
-| `thinking_budget` | number | ❌ | 思考预算（仅对思考模型生效），可为 0 或 1024-32000，默认 1024（0 表示关闭思考预算限制） |
-| `reasoning_effort` | string | ❌ | 思维链强度（OpenAI 格式），可选值：`low`(1024)、`medium`(16000)、`high`(32000) |
-| `tools` | array | ❌ | 工具列表（Function Calling） |
+## Request Parameters
 
-## 响应格式
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `model` | string | Yes | Model ID (e.g., `gemini-4-carbon`, `gemini-4-hydrogen`, `gemini-3.8-flash`) |
+| `messages` | array | Yes | Conversation message list |
+| `stream` | boolean | No | Enable SSE streaming (default: `false`) |
+| `temperature` | number | No | Sampling temperature (default: `1`) |
+| `top_p` | number | No | Top-P nucleus sampling (default: `1`) |
+| `top_k` | number | No | Top-K sampling (default: `50`) |
+| `max_tokens` | number | No | Maximum output tokens (default: `32000`) |
+| `thinking_budget` | number | No | Thinking token budget (`0` to disable, or `1024`–`32000`, default: `1024`) |
+| `reasoning_effort` | string | No | OpenAI-compatible reasoning depth: `low` (1024), `medium` (16000), `high` (32000) |
+| `response_format` | object | No | Structured output (`{ "type": "json_object" }`, supported on Gemini models) |
+| `tools` | array | No | Tool definitions for Function Calling |
 
-### 非流式响应
+---
 
+## Response Formats
+
+### Non-Streaming Response
 ```json
 {
   "id": "chatcmpl-xxx",
   "object": "chat.completion",
-  "created": 1234567890,
-  "model": "gemini-2.0-flash-exp",
+  "created": 1763560000,
+  "model": "gemini-4-hydrogen",
   "choices": [{
     "index": 0,
     "message": {
       "role": "assistant",
-      "content": "你好！有什么我可以帮助你的吗？"
+      "content": "Hello! How can I help you today?"
     },
     "finish_reason": "stop"
   }],
@@ -192,142 +207,129 @@ curl http://localhost:8045/v1/chat/completions \
 }
 ```
 
-### 流式响应
-
+### Streaming Response (SSE)
 ```
-data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","created":1234567890,"model":"gemini-2.0-flash-exp","choices":[{"index":0,"delta":{"role":"assistant","content":"你"},"finish_reason":null}]}
+data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","created":1763560000,"model":"gemini-4-hydrogen","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},"finish_reason":null}]}
 
-data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","created":1234567890,"model":"gemini-2.0-flash-exp","choices":[{"index":0,"delta":{"content":"好"},"finish_reason":null}]}
+data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","created":1763560000,"model":"gemini-4-hydrogen","choices":[{"index":0,"delta":{"content":"!"},"finish_reason":null}]}
 
 data: [DONE]
 ```
 
-## 错误处理
+---
 
-API 返回标准的 HTTP 状态码：
+## Error Handling
 
-| 状态码 | 说明 |
-|--------|------|
-| 200 | 请求成功 |
-| 400 | 请求参数错误 |
-| 401 | API Key 无效 |
-| 429 | 请求过于频繁 |
-| 500 | 服务器内部错误 |
+| HTTP Status | Meaning |
+|-------------|---------|
+| `200` | Success |
+| `400` | Invalid request parameters |
+| `401` | Invalid or missing API key |
+| `429` | Rate limit / quota exceeded |
+| `500` | Internal server error |
 
-错误响应格式：
-
+Error response format:
 ```json
 {
   "error": {
-    "message": "错误信息",
+    "message": "Error description",
     "type": "invalid_request_error",
     "code": "invalid_api_key"
   }
 }
 ```
 
-## 思维链模型
+---
 
-对于支持思维链的模型（如 `gemini-2.5-pro`、`claude-opus-4-5-thinking` 等），可以通过以下参数控制推理深度：
+## Thinking / Reasoning Models
 
-### 使用 reasoning_effort（OpenAI 兼容格式）
+Reasoning models (such as `gemini-4-carbon`, `gemini-4-argon`, `gemini-4-neon`, `gemini-4-hydrogen`, `gemini-3.8-flash`, `gemini-3.6-flash`, `gemini-3.1-pro-preview`, `gemini-2.5-pro`, and Claude `-thinking` models) support controlling thinking depth:
 
+### Using `reasoning_effort`
 ```bash
 curl http://localhost:8045/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-text" \
   -d '{
-    "model": "gemini-2.5-pro",
-    "messages": [{"role": "user", "content": "解释量子纠缠"}],
+    "model": "gemini-4-carbon",
+    "messages": [{"role": "user", "content": "Explain quantum entanglement"}],
     "stream": true,
     "reasoning_effort": "high"
   }'
 ```
 
-| reasoning_effort | thinking_budget | 说明 |
-|-----------------|-----------------|------|
-| `low` | 1024 | 快速响应，适合简单问题（默认） |
-| `medium` | 16000 | 平衡模式 |
-| `high` | 32000 | 深度思考，适合复杂推理 |
+| `reasoning_effort` | `thinking_budget` | Description |
+|--------------------|-------------------|-------------|
+| `low` | `1024` | Fast response for straightforward prompts (default) |
+| `medium` | `16000` | Balanced reasoning depth |
+| `high` | `32000` | Deep reasoning for complex tasks |
 
-### 使用 thinking_budget（直接数值）
-
+### Using `thinking_budget` Directly
 ```bash
 curl http://localhost:8045/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-text" \
   -d '{
-    "model": "gemini-2.5-pro",
-    "messages": [{"role": "user", "content": "证明勾股定理"}],
-      "stream": true,
+    "model": "gemini-4-carbon",
+    "messages": [{"role": "user", "content": "Prove the Pythagorean theorem"}],
+    "stream": true,
     "thinking_budget": 24000
   }'
 ```
 
-### 429/503 自动重试配置
+### Automatic 429 / 503 Retry Configuration
+Retries are configured server-side in `config.json`:
+```json
+"other": {
+  "timeout": 300000,
+  "retryTimes": 3,
+  "retryIntervalMs": 10000,
+  "retryPollTokenWithQuota": false,
+  "skipProjectIdFetch": false,
+  "useNativeAxios": false
+}
+```
+- `retryTimes`: Maximum retry attempts (default: `3`).
+- `retryIntervalMs`: Fixed wait interval in milliseconds (default: `10000`).
+- `retryPollTokenWithQuota`: When enabled, switches to another non-cooled-down token with remaining quota before retrying.
 
-所有 429/503 重试仅通过服务端配置控制。503 按固定间隔统一重试，包括切换下一个上游前的等待；429 只有上游错误响应体能提取到等待间隔或资源恢复时间时才会重试，提取不到时直接返回错误。
+### Reasoning Response Format
+Thinking content is returned in the `reasoning_content` field (DeepSeek-compatible):
 
-- 全局默认重试配置（服务端配置）：
-  - 文件：`config.json` 中的 `other.retryTimes`、`other.retryIntervalMs`、`other.retryPollTokenWithQuota`
-  - 示例：
-    ```json
-    "other": {
-      "timeout": 300000,
-      "retryTimes": 3,
-      "retryIntervalMs": 10000,
-      "retryPollTokenWithQuota": false,
-      "skipProjectIdFetch": false,
-      "useNativeAxios": false
-    }
-    ```
-  - `retryTimes`：最大重试次数（默认 3 次）。
-  - `retryIntervalMs`：固定重试间隔（默认 10000ms），503 和可重试 429 都使用该间隔，不再使用短间隔指数退避。
-  - `retryPollTokenWithQuota`：开启后，重试前重新轮询对当前模型组仍有额度且未冷却的 Token。
-  - 长时间 429 额度耗尽会进入模型组冷却；未开启 Token 轮询时不会继续重试。
-
-### 思维链响应格式
-
-思维链内容通过 `reasoning_content` 字段输出（兼容 DeepSeek 格式）：
-
-**非流式响应**：
 ```json
 {
   "choices": [{
     "message": {
       "role": "assistant",
-      "reasoning_content": "让我思考一下这个问题...",
-      "content": "量子纠缠是..."
+      "reasoning_content": "Let me think through this step by step...",
+      "content": "Quantum entanglement is..."
     }
   }]
 }
 ```
 
-**流式响应**：
-```
-data: {"choices":[{"delta":{"reasoning_content":"让我"}}]}
-data: {"choices":[{"delta":{"reasoning_content":"思考..."}}]}
-data: {"choices":[{"delta":{"content":"量子纠缠是..."}}]}
-```
+---
 
-### 支持思维链的模型
+## Gemini CLI Endpoints
 
-- `gemini-2.5-pro`
-- `gemini-2.5-flash-thinking`
-- `gemini-3-flash`
-- `gemini-3-pro-high`
-- `gemini-3-pro-low`
-- `claude-opus-4-5-thinking`
-- `claude-sonnet-4-5-thinking`
-- `rev19-uic3-1p`
-- `gpt-oss-120b-medium`
+When Gemini CLI mode is enabled, additional endpoints are available under `/cli`:
+- `GET /cli/v1/models`
+- `POST /cli/v1/chat/completions`
+- `POST /cli/v1/messages`
+- `POST /cli/v1beta/models/:model:generateContent`
+- `POST /cli/v1beta/models/:model:streamGenerateContent`
 
-## SD WebUI 兼容 API
+Supported model modifiers on `/cli/*`:
+- **Prefixes**: `fake-stream/` (fake streaming), `anti-truncation/` (streaming anti-truncation)
+- **Suffixes**: `-maxthinking`, `-nothinking`, `-search` (Google Search grounding)
 
-本服务提供与 Stable Diffusion WebUI 兼容的 API 接口，可用于与支持 SD WebUI API 的客户端集成。
+Example: `anti-truncation/gemini-4-hydrogen-maxthinking-search`
 
-### 文本生成图片
+---
 
+## SD WebUI Compatible API
+
+### Text-to-Image (`txt2img`)
 ```bash
 curl http://localhost:8045/sdapi/v1/txt2img \
   -H "Content-Type: application/json" \
@@ -340,8 +342,7 @@ curl http://localhost:8045/sdapi/v1/txt2img \
   }'
 ```
 
-### 图片生成图片
-
+### Image-to-Image (`img2img`)
 ```bash
 curl http://localhost:8045/sdapi/v1/img2img \
   -H "Content-Type: application/json" \
@@ -352,22 +353,22 @@ curl http://localhost:8045/sdapi/v1/img2img \
   }'
 ```
 
-### 其他 SD API 端点
+### Other SD WebUI Endpoints
+| Endpoint | Description |
+|----------|-------------|
+| `GET /sdapi/v1/sd-models` | List available Gemini / Nano Banana image generation models |
+| `GET /sdapi/v1/options` | Get current SD options |
+| `GET /sdapi/v1/samplers` | List available samplers |
+| `GET /sdapi/v1/upscalers` | List available upscalers |
+| `GET /sdapi/v1/progress` | Get generation progress |
 
-| 端点 | 说明 |
-|------|------|
-| `GET /sdapi/v1/sd-models` | 获取可用的图片生成模型 |
-| `GET /sdapi/v1/options` | 获取当前选项 |
-| `GET /sdapi/v1/samplers` | 获取可用的采样器 |
-| `GET /sdapi/v1/upscalers` | 获取可用的放大器 |
-| `GET /sdapi/v1/progress` | 获取生成进度 |
+---
 
-## 管理 API
+## Admin API
 
-管理 API 需要 JWT 认证，先通过登录接口获取 token。
+Admin endpoints require a JWT token obtained via `/admin/login`.
 
-### 登录
-
+### Login
 ```bash
 curl http://localhost:8045/admin/login \
   -H "Content-Type: application/json" \
@@ -377,14 +378,13 @@ curl http://localhost:8045/admin/login \
   }'
 ```
 
-### Token 管理
-
+### Token Management
 ```bash
-# 获取 Token 列表
+# List tokens
 curl http://localhost:8045/admin/tokens \
   -H "Authorization: Bearer JWT_TOKEN"
 
-# 添加 Token
+# Add token
 curl http://localhost:8045/admin/tokens \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer JWT_TOKEN" \
@@ -394,48 +394,29 @@ curl http://localhost:8045/admin/tokens \
     "expires_in": 3599
   }'
 
-# 删除 Token
+# Delete token
 curl -X DELETE http://localhost:8045/admin/tokens/REFRESH_TOKEN \
   -H "Authorization: Bearer JWT_TOKEN"
 ```
 
-### 查看模型额度
-
+### Model Quotas
 ```bash
-# 获取指定 Token 的模型额度
+# Get quotas for a token
 curl http://localhost:8045/admin/tokens/REFRESH_TOKEN/quotas \
   -H "Authorization: Bearer JWT_TOKEN"
 
-# 强制刷新额度数据
+# Force refresh quotas
 curl "http://localhost:8045/admin/tokens/REFRESH_TOKEN/quotas?refresh=true" \
   -H "Authorization: Bearer JWT_TOKEN"
 ```
 
-**响应示例**：
-```json
-{
-  "success": true,
-  "data": {
-    "lastUpdated": 1702700000000,
-    "models": {
-      "gemini-2.5-pro": {
-        "remaining": 0.85,
-        "resetTime": "12-16 20:00",
-        "resetTimeRaw": "2024-12-16T12:00:00Z"
-      }
-    }
-  }
-}
-```
-
-### 轮询策略配置
-
+### Rotation Strategy
 ```bash
-# 获取当前轮询配置
+# Get current rotation config
 curl http://localhost:8045/admin/rotation \
   -H "Authorization: Bearer JWT_TOKEN"
 
-# 更新轮询策略
+# Update rotation strategy
 curl -X PUT http://localhost:8045/admin/rotation \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer JWT_TOKEN" \
@@ -445,19 +426,13 @@ curl -X PUT http://localhost:8045/admin/rotation \
   }'
 ```
 
-**可用策略**：
-- `round_robin`：每次请求切换 Token
-- `quota_exhausted`：额度耗尽才切换
-- `request_count`：自定义请求次数后切换
-
-### 配置管理
-
+### Configuration Management
 ```bash
-# 获取配置
+# Get config
 curl http://localhost:8045/admin/config \
   -H "Authorization: Bearer JWT_TOKEN"
 
-# 更新配置
+# Update config
 curl -X PUT http://localhost:8045/admin/config \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer JWT_TOKEN" \
@@ -470,28 +445,31 @@ curl -X PUT http://localhost:8045/admin/config \
   }'
 ```
 
-## 使用示例
+---
 
-### Python
+## SDK Examples
 
+### Python (`openai` SDK)
 ```python
-import openai
+from openai import OpenAI
 
-openai.api_base = "http://localhost:8045/v1"
-openai.api_key = "sk-text"
+client = OpenAI(
+    base_url="http://localhost:8045/v1",
+    api_key="sk-text"
+)
 
-response = openai.ChatCompletion.create(
-    model="gemini-2.0-flash-exp",
-    messages=[{"role": "user", "content": "你好"}],
+stream = client.chat.completions.create(
+    model="gemini-4-hydrogen",
+    messages=[{"role": "user", "content": "Hello!"}],
     stream=True
 )
 
-for chunk in response:
-    print(chunk.choices[0].delta.get("content", ""), end="")
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="")
 ```
 
-### Node.js
-
+### Node.js (`openai` SDK)
 ```javascript
 import OpenAI from 'openai';
 
@@ -501,8 +479,8 @@ const openai = new OpenAI({
 });
 
 const stream = await openai.chat.completions.create({
-  model: 'gemini-2.0-flash-exp',
-  messages: [{ role: 'user', content: '你好' }],
+  model: 'gemini-4-hydrogen',
+  messages: [{ role: 'user', content: 'Hello!' }],
   stream: true
 });
 
@@ -511,14 +489,12 @@ for await (const chunk of stream) {
 }
 ```
 
-## 配置选项
+---
 
-### passSignatureToClient
+## Advanced Options
 
-控制是否将 `thoughtSignature` 透传到客户端响应中。
-
-在 `config.json` 中配置：
-
+### `passSignatureToClient`
+Controls whether `thoughtSignature` is forwarded to the client in `config.json`:
 ```json
 {
   "other": {
@@ -526,27 +502,11 @@ for await (const chunk of stream) {
   }
 }
 ```
+- `false` (default): `thoughtSignature` is omitted from responses.
+- `true`: `thoughtSignature` is included in streaming deltas / responses.
 
-- `false`（默认）：不透传签名，响应中不包含 `thoughtSignature` 字段
-- `true`：透传签名，响应中包含 `thoughtSignature` 字段
-
-**启用透传后的响应示例**：
-
-```json
-{
-  "choices": [{
-    "delta": {
-      "reasoning_content": "让我思考...",
-      "thoughtSignature": "RXFRRENrZ0lDaEFD..."
-    }
-  }]
-}
-```
-
-### useContextSystemPrompt
-
-控制是否将请求中的 system 消息合并到 SystemInstruction。
-
+### `useContextSystemPrompt`
+Controls whether leading `system` messages in a request are merged into `SystemInstruction`:
 ```json
 {
   "other": {
@@ -554,18 +514,5 @@ for await (const chunk of stream) {
   }
 }
 ```
-
-- `false`（默认）：仅使用全局 `SYSTEM_INSTRUCTION` 环境变量
-- `true`：将请求开头连续的 system 消息与全局配置合并
-
-## 注意事项
-
-1. 所有 `/v1/*` 请求必须携带有效的 API Key
-2. 管理 API (`/admin/*`) 需要 JWT 认证
-3. 图片输入需要使用 Base64 编码
-4. 流式响应使用 Server-Sent Events (SSE) 格式，包含心跳机制防止超时
-5. 工具调用需要模型支持 Function Calling
-6. 图片生成仅支持 `gemini-3-pro-image` 模型
-7. 模型列表会缓存 1 小时，可通过配置调整
-8. 思维链内容通过 `reasoning_content` 字段输出（兼容 DeepSeek 格式）
-9. 默认轮询策略为 `request_count`，每 50 次请求切换 Token
+- `false` (default): Uses only the global `SYSTEM_INSTRUCTION` environment variable.
+- `true`: Merges consecutive leading `system` messages with the global `SYSTEM_INSTRUCTION`.

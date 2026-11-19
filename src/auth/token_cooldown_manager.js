@@ -5,10 +5,10 @@ import { getDataDir } from '../utils/paths.js';
 import { getGroupKey, MODEL_GROUPS } from '../utils/modelGroups.js';
 
 /**
- * Token 模型系列冷却管理器
- * 当某个 token 的某个模型系列额度耗尽且恢复时间很长时，暂时禁用该 token 对该模型系列的访问
+ * Token model-family cooldown manager
+ * Temporarily disables a token's access to a model family when its quota is exhausted and recovery takes a long time
  *
- * 数据结构：
+ * Data structure:
  * {
  *   "meta": { "version": 1 },
  *   "cooldowns": {
@@ -56,10 +56,10 @@ class TokenCooldownManager {
         }
       });
 
-      // 启动时清理过期的冷却状态
+      // Clean up expired cooldowns on startup
       this._cleanupExpired();
     } catch (error) {
-      log.error('[CooldownManager] 加载冷却状态文件失败:', error.message);
+      log.error('[CooldownManager] Failed to load cooldown state file:', error.message);
     }
   }
 
@@ -67,7 +67,7 @@ class TokenCooldownManager {
     try {
       const cooldownsObj = {};
       this.cooldowns.forEach((groups, tokenId) => {
-        // 只保存有实际冷却的条目
+        // Only save entries with active cooldowns
         const validGroups = {};
         let hasValid = false;
         for (const [group, data] of Object.entries(groups)) {
@@ -87,12 +87,12 @@ class TokenCooldownManager {
       };
       fs.writeFileSync(this.filePath, JSON.stringify(data, null, 2), 'utf8');
     } catch (error) {
-      log.error('[CooldownManager] 保存冷却状态文件失败:', error.message);
+      log.error('[CooldownManager] Failed to save cooldown state file:', error.message);
     }
   }
 
   /**
-   * 清理过期的冷却状态
+   * Clean up expired cooldown states
    * @private
    */
   _cleanupExpired() {
@@ -109,16 +109,16 @@ class TokenCooldownManager {
     });
 
     if (cleaned > 0) {
-      log.info(`[CooldownManager] 清理了 ${cleaned} 个过期的冷却状态`);
+      log.info(`[CooldownManager] Cleaned up ${cleaned} expired cooldown states`);
       this.saveToFile();
     }
   }
 
   /**
-   * 禁用指定 token 的指定模型系列，直到指定时间
+   * Disable the specified model family for a token until the given timestamp
    * @param {string} tokenId - Token ID
-   * @param {string} modelId - 模型 ID（用于确定模型系列）
-   * @param {number} untilTimestamp - 禁用截止时间戳（毫秒）
+   * @param {string} modelId - Model ID (used to determine model family)
+   * @param {number} untilTimestamp - Cooldown end timestamp (milliseconds)
    */
   setCooldown(tokenId, modelId, untilTimestamp) {
     if (!tokenId || !untilTimestamp) return;
@@ -131,25 +131,25 @@ class TokenCooldownManager {
       this.cooldowns.set(tokenId, groups);
     }
 
-    // 幂等检查：如果已经存在相同或更晚的冷却时间，跳过重复设置
+    // Idempotency check: skip if an equal or later cooldown already exists
     const existing = groups[groupKey];
     if (existing && existing.until && existing.until >= untilTimestamp) {
-      return; // 已有更严格的冷却，无需重复设置
+      return; // A stricter cooldown already exists, no need to set again
     }
 
     groups[groupKey] = { until: untilTimestamp };
 
     const resetDate = new Date(untilTimestamp);
-    log.warn(`[CooldownManager] Token ${tokenId} 的 ${groupKey} 系列已禁用，将在 ${resetDate.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })} 恢复`);
+    log.warn(`[CooldownManager] Token ${tokenId} ${groupKey} family disabled, will recover at ${resetDate.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`);
 
     this.saveToFile();
   }
 
   /**
-   * 检查指定 token 对指定模型是否可用（未在冷却中）
+   * Check whether the specified token is available for the given model (not in cooldown)
    * @param {string} tokenId - Token ID
-   * @param {string} modelId - 模型 ID
-   * @returns {boolean} true = 可用，false = 在冷却中
+   * @param {string} modelId - Model ID
+   * @returns {boolean} true = available, false = in cooldown
    */
   isAvailable(tokenId, modelId) {
     if (!tokenId) return true;
@@ -164,10 +164,10 @@ class TokenCooldownManager {
 
     const now = Date.now();
     if (cooldown.until <= now) {
-      // 冷却已过期，清除状态
+      // Cooldown expired, clear state
       groups[groupKey] = null;
       this.saveToFile();
-      log.info(`[CooldownManager] Token ${tokenId} 的 ${groupKey} 系列冷却已结束`);
+      log.info(`[CooldownManager] Token ${tokenId} ${groupKey} family cooldown ended`);
       return true;
     }
 
@@ -175,10 +175,10 @@ class TokenCooldownManager {
   }
 
   /**
-   * 获取指定 token 对指定模型的冷却结束时间
+   * Get the cooldown end timestamp for the specified token and model
    * @param {string} tokenId - Token ID
-   * @param {string} modelId - 模型 ID
-   * @returns {number|null} 冷却结束时间戳，如果未在冷却中返回 null
+   * @param {string} modelId - Model ID
+   * @returns {number|null} Cooldown end timestamp, or null if not in cooldown
    */
   getCooldownUntil(tokenId, modelId) {
     if (!tokenId) return null;
@@ -200,9 +200,9 @@ class TokenCooldownManager {
   }
 
   /**
-   * 清除指定 token 的指定模型系列的冷却状态
+   * Clear the cooldown state for a specific token and model family
    * @param {string} tokenId - Token ID
-   * @param {string} modelId - 模型 ID
+   * @param {string} modelId - Model ID
    */
   clearCooldown(tokenId, modelId) {
     if (!tokenId) return;
@@ -213,13 +213,13 @@ class TokenCooldownManager {
     const groupKey = getGroupKey(modelId);
     if (groups[groupKey]) {
       groups[groupKey] = null;
-      log.info(`[CooldownManager] 已清除 Token ${tokenId} 的 ${groupKey} 系列冷却状态`);
+      log.info(`[CooldownManager] Cleared cooldown state for token ${tokenId} ${groupKey} family`);
       this.saveToFile();
     }
   }
 
   /**
-   * 清除指定 token 的所有冷却状态
+   * Clear all cooldown states for a specific token
    * @param {string} tokenId - Token ID
    */
   clearAllCooldowns(tokenId) {
@@ -227,14 +227,14 @@ class TokenCooldownManager {
 
     if (this.cooldowns.has(tokenId)) {
       this.cooldowns.delete(tokenId);
-      log.info(`[CooldownManager] 已清除 Token ${tokenId} 的所有冷却状态`);
+      log.info(`[CooldownManager] Cleared all cooldown states for token ${tokenId}`);
       this.saveToFile();
     }
   }
 
   /**
-   * 获取所有冷却状态（用于管理界面显示）
-   * @returns {Object} 所有冷却状态
+   * Get all cooldown states (for admin UI display)
+   * @returns {Object} All cooldown states
    */
   getAllCooldowns() {
     const result = {};

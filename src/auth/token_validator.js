@@ -4,8 +4,8 @@ import quotaManager from './quota_manager.js';
 import tokenCooldownManager from './token_cooldown_manager.js';
 
 /**
- * Token 验证器类
- * 负责 Token 的各种验证逻辑
+ * Token validator class
+ * Responsible for various token validation checks
  */
 class TokenValidator {
   constructor(store) {
@@ -13,32 +13,32 @@ class TokenValidator {
   }
 
   /**
-   * 检查 token 对指定模型是否有额度
-   * @param {Object} token - Token 对象
-   * @param {string} modelId - 模型 ID
-   * @returns {Promise<boolean>} true = 有额度或无数据，false = 额度为 0
+   * Check whether a token has quota for the specified model
+   * @param {Object} token - Token object
+   * @param {string} modelId - Model ID
+   * @returns {Promise<boolean>} true = has quota or no data, false = quota is 0
    */
   async hasQuotaForModel(token, modelId) {
     if (!token || !modelId) return true;
 
     try {
       const salt = await this.store.getSalt();
-      if (!salt) return true; // 没有 salt，假设有额度
+      if (!salt) return true; // No salt, assume quota is available
 
       const tokenId = generateTokenId(token.refresh_token, salt);
       return quotaManager.hasQuotaForModel(tokenId, modelId);
     } catch (error) {
-      // 出错时假设有额度
-      log.warn(`检查额度时出错: ${error.message}`);
+      // Assume quota is available on error
+      log.warn(`Error checking quota: ${error.message}`);
       return true;
     }
   }
 
   /**
-   * 检查 token 对指定模型是否在冷却中
-   * @param {Object} token - Token 对象
-   * @param {string} modelId - 模型 ID
-   * @returns {Promise<boolean>} true = 可用（不在冷却中），false = 在冷却中
+   * Check whether a token is in cooldown for the specified model
+   * @param {Object} token - Token object
+   * @param {string} modelId - Model ID
+   * @returns {Promise<boolean>} true = available (not in cooldown), false = in cooldown
    */
   async isAvailableForModel(token, modelId) {
     if (!token || !modelId) return true;
@@ -50,35 +50,35 @@ class TokenValidator {
       const tokenId = generateTokenId(token.refresh_token, salt);
       return tokenCooldownManager.isAvailable(tokenId, modelId);
     } catch (error) {
-      log.warn(`检查冷却状态时出错: ${error.message}`);
+      log.warn(`Error checking cooldown status: ${error.message}`);
       return true;
     }
   }
 
   /**
-   * 检查 token 对指定模型是否可用（既有额度，又不在冷却中）
-   * @param {Object} token - Token 对象
-   * @param {string} modelId - 模型 ID
-   * @returns {Promise<boolean>} true = 可用，false = 不可用
+   * Check whether a token can be used for the specified model (both has quota and is not in cooldown)
+   * @param {Object} token - Token object
+   * @param {string} modelId - Model ID
+   * @returns {Promise<boolean>} true = available, false = unavailable
    */
   async canUseForModel(token, modelId) {
     if (!token || !modelId) return true;
 
-    // 先检查冷却状态（更严格的限制）
+    // Check cooldown status first (stricter restriction)
     const isAvailable = await this.isAvailableForModel(token, modelId);
     if (!isAvailable) {
       return false;
     }
 
-    // 再检查额度
+    // Then check quota
     return await this.hasQuotaForModel(token, modelId);
   }
 
   /**
-   * 批量检查多个 token 对指定模型是否可用
-   * @param {Array<{tokenId: string, token: Object}>} tokens - Token 数组
-   * @param {string} modelId - 模型 ID
-   * @returns {Promise<Array<{tokenId: string, token: Object, available: boolean}>>} 检查结果
+   * Batch check whether multiple tokens are available for the specified model
+   * @param {Array<{tokenId: string, token: Object}>} tokens - Array of tokens
+   * @param {string} modelId - Model ID
+   * @returns {Promise<Array<{tokenId: string, token: Object, available: boolean}>>} Check results
    */
   async checkTokensAvailability(tokens, modelId) {
     if (!modelId || tokens.length === 0) {
@@ -96,10 +96,10 @@ class TokenValidator {
   }
 
   /**
-   * 过滤出对指定模型可用的 tokens
-   * @param {Array<{tokenId: string, token: Object}>} tokens - Token 数组
-   * @param {string} modelId - 模型 ID
-   * @returns {Promise<Array<{tokenId: string, token: Object}>>} 可用的 token 数组
+   * Filter tokens that are available for the specified model
+   * @param {Array<{tokenId: string, token: Object}>} tokens - Array of tokens
+   * @param {string} modelId - Model ID
+   * @returns {Promise<Array<{tokenId: string, token: Object}>>} Array of available tokens
    */
   async filterAvailableTokens(tokens, modelId) {
     if (!modelId || tokens.length === 0) {
@@ -111,10 +111,10 @@ class TokenValidator {
   }
 
   /**
-   * 检查所有 token 对指定模型是否都不可用（额度为0或在冷却中）
-   * @param {Array<{tokenId: string, token: Object}>} tokens - Token 数组
-   * @param {string} modelId - 模型 ID
-   * @returns {Promise<boolean>} true = 所有 token 对该模型都不可用
+   * Check whether all tokens are unavailable for the specified model (0 quota or in cooldown)
+   * @param {Array<{tokenId: string, token: Object}>} tokens - Array of tokens
+   * @param {string} modelId - Model ID
+   * @returns {Promise<boolean>} true = all tokens are unavailable for this model
    */
   async areAllTokensExhausted(tokens, modelId) {
     if (!modelId || tokens.length === 0) return false;
@@ -122,18 +122,18 @@ class TokenValidator {
     for (const { token } of tokens) {
       const canUse = await this.canUseForModel(token, modelId);
       if (canUse) {
-        return false; // 有至少一个 token 可用
+        return false; // At least one token is available
       }
     }
-    return true; // 所有 token 都不可用
+    return true; // All tokens are unavailable
   }
 
   /**
-   * 验证 token 基本信息是否完整
-   * 只要求 refresh_token 必须存在（access_token 可自动刷新，
-   * expires_in/timestamp 缺失时视为已过期，触发自动刷新）
-   * @param {Object} token - Token 对象
-   * @returns {Object} 验证结果 {valid: boolean, missing: Array<string>}
+   * Validate whether basic token fields are complete
+   * Only refresh_token is required (access_token can be auto-refreshed;
+   * missing expires_in/timestamp is treated as expired, triggering auto-refresh)
+   * @param {Object} token - Token object
+   * @returns {Object} Validation result {valid: boolean, missing: Array<string>}
    */
   validateTokenStructure(token) {
     const requiredFields = ['refresh_token'];
@@ -152,67 +152,67 @@ class TokenValidator {
   }
 
   /**
-   * 检查 token 是否启用
-   * @param {Object} token - Token 对象
-   * @returns {boolean} 是否启用
+   * Check whether a token is enabled
+   * @param {Object} token - Token object
+   * @returns {boolean} Whether enabled
    */
   isEnabled(token) {
     return token.enable !== false;
   }
 
   /**
-   * 检查 token 是否有 projectId
-   * @param {Object} token - Token 对象
-   * @returns {boolean} 是否有 projectId
+   * Check whether a token has a projectId
+   * @param {Object} token - Token object
+   * @returns {boolean} Whether it has a projectId
    */
   hasProjectId(token) {
     return !!token.projectId;
   }
 
   /**
-   * 检查 token 整体额度标记
-   * @param {Object} token - Token 对象
-   * @returns {boolean} 是否有额度
+   * Check the overall quota flag on a token
+   * @param {Object} token - Token object
+   * @returns {boolean} Whether it has quota
    */
   hasQuota(token) {
     return token.hasQuota !== false;
   }
 
   /**
-   * 综合检查 token 是否就绪（可以用于请求）
-   * @param {Object} token - Token 对象
-   * @param {string} [modelId] - 可选的模型 ID
-   * @returns {Promise<{ready: boolean, reasons: Array<string>}>} 检查结果
+   * Comprehensive check of whether a token is ready for requests
+   * @param {Object} token - Token object
+   * @param {string} [modelId] - Optional model ID
+   * @returns {Promise<{ready: boolean, reasons: Array<string>}>} Check result
    */
   async isTokenReady(token, modelId = null) {
     const reasons = [];
 
-    // 检查基本结构
+    // Check basic structure
     const structureCheck = this.validateTokenStructure(token);
     if (!structureCheck.valid) {
-      reasons.push(`缺少必需字段: ${structureCheck.missing.join(', ')}`);
+      reasons.push(`Missing required fields: ${structureCheck.missing.join(', ')}`);
     }
 
-    // 检查启用状态
+    // Check enabled status
     if (!this.isEnabled(token)) {
-      reasons.push('token 已禁用');
+      reasons.push('Token is disabled');
     }
 
-    // 检查 projectId
+    // Check projectId
     if (!this.hasProjectId(token)) {
-      reasons.push('缺少 projectId');
+      reasons.push('Missing projectId');
     }
 
-    // 检查整体额度标记
+    // Check overall quota flag
     if (!this.hasQuota(token)) {
-      reasons.push('token 标记为无额度');
+      reasons.push('Token is marked as having no quota');
     }
 
-    // 如果提供了 modelId，检查模型特定的可用性
+    // If modelId is provided, check model-specific availability
     if (modelId) {
       const canUse = await this.canUseForModel(token, modelId);
       if (!canUse) {
-        reasons.push(`对模型 ${modelId} 不可用（额度耗尽或冷却中）`);
+        reasons.push(`Unavailable for model ${modelId} (quota exhausted or in cooldown)`);
       }
     }
 
@@ -223,10 +223,10 @@ class TokenValidator {
   }
 
   /**
-   * 获取 token 的健康状态报告
-   * @param {Object} token - Token 对象
+   * Get health status report for a token
+   * @param {Object} token - Token object
    * @param {string} tokenId - Token ID
-   * @returns {Promise<Object>} 健康状态报告
+   * @returns {Promise<Object>} Health status report
    */
   async getHealthReport(token, tokenId) {
     const report = {

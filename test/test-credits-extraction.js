@@ -1,9 +1,9 @@
 /**
- * 测试积分信息提取功能
- * 验证从 loadCodeAssist 接口正确提取和保存积分信息
+ * Test credits information extraction
+ * Verifies extracting and saving credits info from the loadCodeAssist endpoint
  */
 
-// 模拟 loadCodeAssist API 响应数据
+// Mock loadCodeAssist API response data
 const mockLoadCodeAssistResponse = {
   currentTier: {
     id: 'g1-pro-tier'
@@ -18,7 +18,7 @@ const mockLoadCodeAssistResponse = {
   }
 };
 
-// 模拟 free-tier 响应（无积分信息）
+// Mock free-tier response (no credits info)
 const mockFreeTierResponse = {
   currentTier: {
     id: 'free-tier'
@@ -26,7 +26,7 @@ const mockFreeTierResponse = {
   cloudaicompanionProject: 'test-project-456'
 };
 
-// 模拟未激活账号响应
+// Mock unactivated account response
 const mockUnactivatedResponse = {
   allowedTiers: [
     {
@@ -37,13 +37,13 @@ const mockUnactivatedResponse = {
 };
 
 /**
- * 测试积分提取逻辑
+ * Test credits extraction logic
  */
 function testCreditsExtraction() {
-  console.log('=== 测试积分信息提取 ===\n');
+  console.log('=== Testing Credits Info Extraction ===\n');
 
-  // 测试 1: Pro 账号有积分
-  console.log('测试 1: Pro 账号有积分');
+  // Test 1: Pro account with credits
+  console.log('Test 1: Pro account with credits');
   const data1 = mockLoadCodeAssistResponse;
   const sub1 = data1.currentTier.id;
   let credits1 = null;
@@ -51,18 +51,18 @@ function testCreditsExtraction() {
   if (sub1 !== 'free-tier' && data1?.paidTier?.availableCredits?.[0]?.creditAmount) {
     try {
       credits1 = parseFloat(data1.paidTier.availableCredits[0].creditAmount);
-      console.log(`✓ 成功提取积分: ${credits1}`);
-      console.log(`✓ 订阅类型: ${sub1}`);
+      console.log(`✓ Extracted credits: ${credits1}`);
+      console.log(`✓ Subscription tier: ${sub1}`);
     } catch (err) {
-      console.log(`✗ 解析失败: ${err.message}`);
+      console.log(`✗ Parse failed: ${err.message}`);
     }
   } else {
-    console.log(`- 无积分信息 (sub=${sub1})`);
+    console.log(`- No credits info (sub=${sub1})`);
   }
   console.log('');
 
-  // 测试 2: Free-tier 账号无积分
-  console.log('测试 2: Free-tier 账号无积分');
+  // Test 2: Free-tier account without credits
+  console.log('Test 2: Free-tier account without credits');
   const data2 = mockFreeTierResponse;
   const sub2 = data2.currentTier.id;
   let credits2 = null;
@@ -70,25 +70,25 @@ function testCreditsExtraction() {
   if (sub2 !== 'free-tier' && data2?.paidTier?.availableCredits?.[0]?.creditAmount) {
     try {
       credits2 = parseFloat(data2.paidTier.availableCredits[0].creditAmount);
-      console.log(`✓ 成功提取积分: ${credits2}`);
+      console.log(`✓ Extracted credits: ${credits2}`);
     } catch (err) {
-      console.log(`✗ 解析失败: ${err.message}`);
+      console.log(`✗ Parse failed: ${err.message}`);
     }
   } else {
-    console.log(`✓ 正确跳过 (sub=${sub2}, credits=null)`);
+    console.log(`✓ Correctly skipped (sub=${sub2}, credits=null)`);
   }
   console.log('');
 
-  // 测试 3: 未激活账号
-  console.log('测试 3: 未激活账号');
+  // Test 3: Unactivated account
+  console.log('Test 3: Unactivated account');
   const data3 = mockUnactivatedResponse;
   if (!data3.currentTier) {
-    console.log(`✓ 正确识别为未激活账号`);
+    console.log(`✓ Correctly identified as unactivated account`);
   }
   console.log('');
 
-  // 测试 4: 边界情况 - 字符串转浮点数
-  console.log('测试 4: 字符串转浮点数');
+  // Test 4: Edge cases - string to float conversion
+  console.log('Test 4: String to float conversion');
   const testValues = ['150.50', '100', '0.99', '1000.123456'];
   testValues.forEach(value => {
     const parsed = parseFloat(value);
@@ -96,8 +96,8 @@ function testCreditsExtraction() {
   });
   console.log('');
 
-  console.log('=== 所有测试完成 ===');
+  console.log('=== All Tests Completed ===');
 }
 
-// 运行测试
+// Run tests
 testCreditsExtraction();

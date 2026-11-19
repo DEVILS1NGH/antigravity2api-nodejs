@@ -38,19 +38,19 @@ function generateInstanceId() {
 }
 
 /**
- * 生成随机盐值
- * @returns {string} 32字节的十六进制盐值
+ * Generate a random salt value
+ * @returns {string} 32-byte hexadecimal salt string
  */
 function generateSalt() {
   return randomBytes(32).toString('hex');
 }
 
 /**
- * 根据 refresh_token 和盐值生成安全的 token ID
- * 使用 SHA256 哈希，取前16位作为标识符
- * @param {string} refreshToken - 原始 refresh_token
- * @param {string} salt - 盐值
- * @returns {string} 安全的 token ID
+ * Generate a secure token ID from refresh_token and salt
+ * Uses SHA256 hash and takes the first 16 characters as the identifier
+ * @param {string} refreshToken - Original refresh_token
+ * @param {string} salt - Salt value
+ * @returns {string} Secure token ID
  */
 function generateTokenId(refreshToken, salt) {
   if (!refreshToken || !salt) return null;

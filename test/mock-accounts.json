@@ -9,7 +9,7 @@
       "scope": "openid profile email",
       "project_id": "mock_project_1",
       "disabled": false,
-      "name": "测试账号1"
+      "name": "Test Account 1"
     },
     {
       "refresh_token": "mock_refresh_token_2",
@@ -19,7 +19,7 @@
       "scope": "openid profile email",
       "project_id": "mock_project_2",
       "disabled": false,
-      "name": "测试账号2"
+      "name": "Test Account 2"
     },
     {
       "refresh_token": "mock_refresh_token_3",
@@ -29,7 +29,7 @@
       "scope": "openid profile email",
       "project_id": "mock_project_3",
       "disabled": false,
-      "name": "测试账号3"
+      "name": "Test Account 3"
     },
     {
       "refresh_token": "mock_refresh_token_4",
@@ -39,7 +39,7 @@
       "scope": "openid profile email",
       "project_id": "mock_project_4",
       "disabled": true,
-      "name": "测试账号4（已禁用）"
+      "name": "Test Account 4 (Disabled)"
     }
   ]
 }

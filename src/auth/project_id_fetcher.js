@@ -3,8 +3,8 @@ import config from '../config/config.js';
 import requesterManager from '../utils/requesterManager.js';
 
 /**
- * ProjectId 获取类
- * 负责从 Google API 获取 projectId
+ * ProjectId fetcher class
+ * Responsible for fetching projectId from Google API
  */
 class ProjectIdFetcher {
   constructor(options = {}) {
@@ -14,8 +14,8 @@ class ProjectIdFetcher {
   }
 
   /**
-   * 完整的账号验证流程（重构版）
-   * @param {Object} token - Token 对象
+   * Full account validation flow (refactored)
+   * @param {Object} token - Token object
    * @returns {Promise<{projectId: string|null, sub: string, hasQuota: boolean, source: string, isActivated: boolean, credits: number|null}>}
    */
   async validateAccount(token) {
@@ -28,11 +28,11 @@ class ProjectIdFetcher {
       credits: null
     };
 
-    // 步骤1: 尝试 loadCodeAssist
+    // Step 1: Try loadCodeAssist
     try {
       const loadResult = await this._tryLoadCodeAssist(token);
       
-      // 场景2/3: 已激活账号（loadCodeAssist 返回 currentTier 和 projectId）
+      // Scenario 2/3: Activated account (loadCodeAssist returns currentTier and projectId)
       if (loadResult?.projectId) {
         result.projectId = loadResult.projectId;
         result.sub = loadResult.sub;
@@ -41,13 +41,13 @@ class ProjectIdFetcher {
         result.isActivated = true;
         result.credits = loadResult.credits;
         
-        log.info(`[validateAccount] 场景2/3: 已激活账号，sub=${result.sub}, credits=${result.credits}`);
+        log.info(`[validateAccount] Scenario 2/3: Activated account, sub=${result.sub}, credits=${result.credits}`);
         return result;
       }
       
-      // loadCodeAssist 返回了 currentTier 但没有 projectId（异常情况）
+      // loadCodeAssist returned currentTier without projectId (abnormal case)
       if (loadResult?.sub && loadResult.sub !== 'free-tier') {
-        log.warn('[validateAccount] 账号已激活但无 projectId（异常）');
+        log.warn('[validateAccount] Account is activated but has no projectId (abnormal)');
         result.sub = loadResult.sub;
         result.isActivated = true;
         result.hasQuota = false;
@@ -55,33 +55,33 @@ class ProjectIdFetcher {
       }
       
     } catch (err) {
-      log.warn(`[validateAccount] loadCodeAssist 失败: ${err.message}`);
+      log.warn(`[validateAccount] loadCodeAssist failed: ${err.message}`);
     }
 
-    // 步骤2: loadCodeAssist 未返回有效结果，尝试 onboardUser
-    log.info('[validateAccount] loadCodeAssist 未激活，尝试 onboardUser');
+    // Step 2: loadCodeAssist did not return a valid result, try onboardUser
+    log.info('[validateAccount] Not activated via loadCodeAssist, trying onboardUser');
     
     try {
       const onboardResult = await this._tryOnboardUser(token);
       
-      // 场景4: Pro账号未激活（onboardUser 可以获取 projectId）
+      // Scenario 4: Unactivated Pro account (onboardUser can obtain projectId)
       if (onboardResult?.projectId) {
         result.projectId = onboardResult.projectId;
-        result.sub = 'g1-pro-tier'; // Pro账号的默认订阅
+        result.sub = 'g1-pro-tier'; // Default subscription for Pro accounts
         result.hasQuota = true;
         result.source = 'onboardUser';
         result.isActivated = false;
         
-        log.info('[validateAccount] 场景4: Pro未激活账号');
+        log.info('[validateAccount] Scenario 4: Unactivated Pro account');
         return result;
       }
       
     } catch (err) {
-      log.warn(`[validateAccount] onboardUser 失败: ${err.message}`);
+      log.warn(`[validateAccount] onboardUser failed: ${err.message}`);
     }
 
-    // 步骤3: 两种方式都失败，场景1: 普通未激活账号
-    log.info('[validateAccount] 场景1: 普通未激活账号（free-tier）');
+    // Step 3: Both methods failed, Scenario 1: Regular unactivated account
+    log.info('[validateAccount] Scenario 1: Regular unactivated account (free-tier)');
     result.sub = 'free-tier';
     result.hasQuota = false;
     result.source = 'none';
@@ -91,45 +91,45 @@ class ProjectIdFetcher {
   }
 
   /**
-   * 获取 projectId（尝试两种方式）
-   * @param {Object} token - Token 对象
-   * @returns {Promise<{projectId: string|undefined, sub: string}>} projectId 和 sub
+   * Fetch projectId (tries both methods)
+   * @param {Object} token - Token object
+   * @returns {Promise<{projectId: string|undefined, sub: string}>} projectId and sub
    */
   async fetchProjectId(token) {
     let cachedCredits = null;
 
-    // 步骤1: 尝试 loadCodeAssist
+    // Step 1: Try loadCodeAssist
     try {
       const result = await this._tryLoadCodeAssist(token);
-      // 先缓存积分（即使 projectId 为空，积分信息也可能有效）
+      // Cache credits first (credits info may still be valid even if projectId is empty)
       if (result?.credits != null) cachedCredits = result.credits;
       if (result?.projectId) {
         return result;
       }
-      log.warn('[fetchProjectId] loadCodeAssist 未返回 projectId，回退到 onboardUser');
+      log.warn('[fetchProjectId] loadCodeAssist did not return projectId, falling back to onboardUser');
     } catch (err) {
-      log.warn(`[fetchProjectId] loadCodeAssist 失败: ${err.message}，回退到 onboardUser`);
+      log.warn(`[fetchProjectId] loadCodeAssist failed: ${err.message}, falling back to onboardUser`);
     }
 
-    // 步骤2: 回退到 onboardUser
+    // Step 2: Fallback to onboardUser
     try {
       const result = await this._tryOnboardUser(token);
       if (result?.projectId) {
         if (cachedCredits != null) result.credits = cachedCredits;
         return result;
       }
-      log.error('[fetchProjectId] loadCodeAssist 和 onboardUser 均未能获取 projectId');
+      log.error('[fetchProjectId] Both loadCodeAssist and onboardUser failed to obtain projectId');
       return { projectId: undefined, sub: 'free-tier', credits: cachedCredits };
     } catch (err) {
-      log.error(`[fetchProjectId] onboardUser 失败: ${err.message}`);
+      log.error(`[fetchProjectId] onboardUser failed: ${err.message}`);
       return { projectId: undefined, sub: 'free-tier', credits: cachedCredits };
     }
   }
 
   /**
-   * 尝试通过 loadCodeAssist 获取 projectId
-   * @param {Object} token - Token 对象
-   * @returns {Promise<{projectId: string|null, sub: string, isActivated: boolean, credits: number|null}|null>} projectId、sub、激活状态和积分
+   * Attempt to fetch projectId via loadCodeAssist
+   * @param {Object} token - Token object
+   * @returns {Promise<{projectId: string|null, sub: string, isActivated: boolean, credits: number|null}|null>} projectId, sub, activation status, and credits
    * @private
    */
   async _tryLoadCodeAssist(token) {
@@ -143,7 +143,7 @@ class ProjectIdFetcher {
       }
     };
 
-    log.info(`[loadCodeAssist] 请求: ${requestUrl}`);
+    log.info(`[loadCodeAssist] Request: ${requestUrl}`);
     const response = await requesterManager.fetch(requestUrl, {
       method: 'POST',
       headers: {
@@ -159,26 +159,26 @@ class ProjectIdFetcher {
 
     const data = response.data;
 
-    // 无条件提取积分信息
+    // Unconditionally extract credits info
     let credits = null;
-    // 调试：打印 paidTier 结构，排查积分提取问题
+    // Debug: print paidTier structure to troubleshoot credits extraction
     if (data?.paidTier) {
-      // log.info(`[loadCodeAssist] paidTier 原始数据: ${JSON.stringify(data.paidTier)}`);
+      // log.info(`[loadCodeAssist] paidTier raw data: ${JSON.stringify(data.paidTier)}`);
     }
     const creditAmount = data?.paidTier?.availableCredits?.[0]?.creditAmount;
     if (creditAmount != null) {
       const parsed = Number(creditAmount);
       if (Number.isFinite(parsed)) {
         credits = parsed;
-        // log.info(`[loadCodeAssist] 获取到积分信息: ${credits}`);
+        // log.info(`[loadCodeAssist] Retrieved credits info: ${credits}`);
       }
     } else {
-      // log.info(`[loadCodeAssist] 未找到 creditAmount, paidTier 存在: ${!!data?.paidTier}, availableCredits: ${JSON.stringify(data?.paidTier?.availableCredits)}`);
+      // log.info(`[loadCodeAssist] creditAmount not found, paidTier exists: ${!!data?.paidTier}, availableCredits: ${JSON.stringify(data?.paidTier?.availableCredits)}`);
     }
 
-    // 检查是否有 currentTier（表示用户已激活）
+    // Check if currentTier exists (indicates the user is activated)
     if (data?.currentTier) {
-      log.info('[loadCodeAssist] 用户已激活');
+      log.info('[loadCodeAssist] User is activated');
       const projectId = data.cloudaicompanionProject || null;
       let sub = data.currentTier.id || 'free-tier';
       const sub2 = data.paidTier?.id;
@@ -194,8 +194,8 @@ class ProjectIdFetcher {
       };
     }
 
-    // 未激活
-    log.info('[loadCodeAssist] 用户未激活 (无 currentTier)');
+    // Not activated
+    log.info('[loadCodeAssist] User is not activated (no currentTier)');
     return {
       projectId: null,
       sub: 'free-tier',
@@ -205,23 +205,23 @@ class ProjectIdFetcher {
   }
 
   /**
-   * 尝试通过 onboardUser 获取 projectId（长时间运行操作，需要轮询）
-   * @param {Object} token - Token 对象
-   * @returns {Promise<{projectId: string, sub: string}|null>} projectId 和 sub 或 null
+   * Attempt to fetch projectId via onboardUser (long-running operation, requires polling)
+   * @param {Object} token - Token object
+   * @returns {Promise<{projectId: string, sub: string}|null>} projectId and sub, or null
    * @private
    */
   async _tryOnboardUser(token) {
     const apiHost = config.api.host;
     const requestUrl = `https://${apiHost}/v1internal:onboardUser`;
 
-    // 首先获取用户的 tier 信息
+    // First fetch the user's tier info
     const tierId = await this._getOnboardTier(token);
     if (!tierId) {
-      log.error('[onboardUser] 无法确定用户 tier');
+      log.error('[onboardUser] Unable to determine user tier');
       return null;
     }
 
-    log.info(`[onboardUser] 用户 tier: ${tierId}`);
+    log.info(`[onboardUser] User tier: ${tierId}`);
 
     const requestBody = {
       tierId: tierId,
@@ -232,11 +232,11 @@ class ProjectIdFetcher {
       }
     };
 
-    log.info(`[onboardUser] 请求: ${requestUrl}`);
+    log.info(`[onboardUser] Request: ${requestUrl}`);
 
-    // onboardUser 是长时间运行操作，需要轮询
+    // onboardUser is a long-running operation and requires polling
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
-      log.info(`[onboardUser] 轮询尝试 ${attempt}/${this.maxRetries}`);
+      log.info(`[onboardUser] Polling attempt ${attempt}/${this.maxRetries}`);
 
       const response = await requesterManager.fetch(requestUrl, {
         method: 'POST',
@@ -253,10 +253,10 @@ class ProjectIdFetcher {
 
       const data = response.data;
 
-      // 检查长时间运行操作是否完成
+      // Check whether the long-running operation is done
       let sub = 'g1-pro-tier';
       if (data?.done) {
-        log.info('[onboardUser] 操作完成');
+        log.info('[onboardUser] Operation completed');
         const responseData = data.response || {};
         const projectObj = responseData.cloudaicompanionProject;
 
@@ -268,25 +268,25 @@ class ProjectIdFetcher {
         }
 
         if (projectId) {
-          log.info(`[onboardUser] 成功获取 projectId: ${projectId}`);
+          log.info(`[onboardUser] Successfully retrieved projectId: ${projectId}`);
           return { projectId, sub };
         }
-        log.warn('[onboardUser] 操作完成但响应中无 projectId');
+        log.warn('[onboardUser] Operation completed but no projectId in response');
         return null;
       }
 
-      log.info(`[onboardUser] 操作进行中，等待 ${this.retryDelay}ms...`);
+      log.info(`[onboardUser] Operation in progress, waiting ${this.retryDelay}ms...`);
       await this._sleep(this.retryDelay);
     }
 
-    log.error(`[onboardUser] 超时：操作未在 ${this.maxRetries * this.retryDelay / 1000} 秒内完成`);
+    log.error(`[onboardUser] Timeout: operation did not complete within ${this.maxRetries * this.retryDelay / 1000} seconds`);
     return null;
   }
 
   /**
-   * 从 loadCodeAssist 响应中获取用户应该注册的 tier
-   * @param {Object} token - Token 对象
-   * @returns {Promise<string|null>} tier_id 或 null
+   * Get the tier the user should onboard to from the loadCodeAssist response
+   * @param {Object} token - Token object
+   * @returns {Promise<string|null>} tier_id or null
    * @private
    */
   async _getOnboardTier(token) {
@@ -300,7 +300,7 @@ class ProjectIdFetcher {
       }
     };
 
-    log.info(`[_getOnboardTier] 请求: ${requestUrl}`);
+    log.info(`[_getOnboardTier] Request: ${requestUrl}`);
 
     try {
       const response = await requesterManager.fetch(requestUrl, {
@@ -318,27 +318,27 @@ class ProjectIdFetcher {
 
       const data = response.data;
 
-      // 查找默认的 tier
+      // Look for the default tier
       const allowedTiers = data?.allowedTiers || [];
       for (const tier of allowedTiers) {
         if (tier.isDefault) {
-          log.info(`[_getOnboardTier] 找到默认 tier: ${tier.id}`);
+          log.info(`[_getOnboardTier] Found default tier: ${tier.id}`);
           return tier.id;
         }
       }
 
-      // 如果没有默认 tier，使用 LEGACY 作为回退
-      log.warn('[_getOnboardTier] 未找到默认 tier，使用 LEGACY');
+      // If no default tier is found, fall back to LEGACY
+      log.warn('[_getOnboardTier] Default tier not found, using LEGACY');
       return 'LEGACY';
     } catch (err) {
-      log.error(`[_getOnboardTier] 获取 tier 失败: ${err.message}`);
+      log.error(`[_getOnboardTier] Failed to get tier: ${err.message}`);
       return null;
     }
   }
 
   /**
-   * 睡眠指定时间
-   * @param {number} ms - 毫秒数
+   * Sleep for the specified duration
+   * @param {number} ms - Milliseconds
    * @returns {Promise<void>}
    * @private
    */
@@ -347,8 +347,8 @@ class ProjectIdFetcher {
   }
 
   /**
-   * 专门获取积分和订阅信息
-   * @param {Object} token - Token 对象
+   * Fetch subscription and credits information
+   * @param {Object} token - Token object
    * @returns {Promise<{sub: string, credits: number|null, isActivated: boolean}>}
    */
   async fetchSubscriptionAndCredits(token) {
@@ -368,21 +368,21 @@ class ProjectIdFetcher {
         result.credits = loadResult.credits;
         result.isActivated = true;
         
-        log.info(`[fetchSubscriptionAndCredits] 订阅: ${result.sub}, 积分: ${result.credits}`);
+        log.info(`[fetchSubscriptionAndCredits] Subscription: ${result.sub}, Credits: ${result.credits}`);
       } else {
-        log.info('[fetchSubscriptionAndCredits] 账号未激活，保持 free-tier');
+        log.info('[fetchSubscriptionAndCredits] Account is not activated, keeping free-tier');
       }
       
       return result;
     } catch (err) {
-      log.error(`[fetchSubscriptionAndCredits] 获取失败: ${err.message}`);
+      log.error(`[fetchSubscriptionAndCredits] Fetch failed: ${err.message}`);
       return result;
     }
   }
 
   /**
-   * 设置最大重试次数
-   * @param {number} retries - 重试次数
+   * Set maximum retry count
+   * @param {number} retries - Number of retries
    */
   setMaxRetries(retries) {
     if (retries > 0) {
@@ -391,8 +391,8 @@ class ProjectIdFetcher {
   }
 
   /**
-   * 设置重试延迟
-   * @param {number} delay - 延迟时间（毫秒）
+   * Set retry delay
+   * @param {number} delay - Delay in milliseconds
    */
   setRetryDelay(delay) {
     if (delay > 0) {
@@ -401,8 +401,8 @@ class ProjectIdFetcher {
   }
 
   /**
-   * 设置超时时间
-   * @param {number} timeout - 超时时间（毫秒）
+   * Set timeout duration
+   * @param {number} timeout - Timeout in milliseconds
    */
   setTimeout(timeout) {
     if (timeout > 0) {

@@ -1,4 +1,4 @@
-/* 主内容区 */
+/* Main content area */
 .main-content {
     margin: 0;
     background: rgba(255, 255, 255, 0.6);
@@ -113,7 +113,7 @@
     flex-direction: column;
 }
 
-/* 日志页面时禁止 .content 滚动 */
+/* Disable .content scrolling on logs page */
 html.tab-logs .content {
     overflow: hidden;
 }
@@ -151,7 +151,7 @@ html.tab-logs .content {
     }
 }
 
-/* 顶部栏 - 统计+操作 */
+/* Top bar - stats + actions */
 .top-bar {
     display: flex;
     justify-content: space-between;
@@ -181,7 +181,7 @@ html.tab-logs .content {
     align-items: center;
 }
 
-/* 移动端操作区展开/收起按钮 */
+/* Mobile actions expand/collapse button */
 .action-toggle-btn {
     display: none;
     width: 24px;

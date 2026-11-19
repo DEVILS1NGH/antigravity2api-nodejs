@@ -1,5 +1,5 @@
-// 工具名称映射缓存：按 model + safeName 维度
-// 解决：发送到上游时工具名必须 sanitize，返回时需要还原为原始工具名
+// Tool name mapping cache: keyed by model + safeName
+// Solves: tool names must be sanitized when sent upstream and restored to original names on return
 
 import memoryManager from './memoryManager.js';
 
@@ -7,7 +7,7 @@ import memoryManager from './memoryManager.js';
 const toolNameMap = new Map();
 
 const MAX_ENTRIES = 16;
-const ENTRY_TTL_MS = 30 * 60 * 1000;      // 30 分钟
+const ENTRY_TTL_MS = 30 * 60 * 1000;      // 30 minutes
 
 function makeKey(model, safeName) {
   return `${model || ''}::${safeName || ''}`;
@@ -33,7 +33,7 @@ function pruneExpired(now) {
   }
 }
 
-// 定时清理由 memoryManager 统一触发（避免每个模块单独 setInterval 扫描）
+// Periodic cleanup is triggered centrally by memoryManager (avoids per-module setInterval scanning)
 memoryManager.registerCleanup(() => {
   const now = Date.now();
   pruneExpired(now);

@@ -2,25 +2,25 @@ import { log } from '../utils/logger.js';
 import { generateTokenId } from '../utils/idGenerator.js';
 
 /**
- * Token 池管理类
- * 负责 Token 的存储和基本操作，使用 Map 替代数组索引以避免索引失效问题
+ * Token pool manager class
+ * Responsible for token storage and basic operations, using a Map instead of array indices to avoid index invalidation issues
  */
 class TokenPool {
   constructor(store) {
     this.store = store;
-    /** @type {Map<string, Object>} key: tokenId, value: token 对象 */
+    /** @type {Map<string, Object>} key: tokenId, value: token object */
     this.tokens = new Map();
-    /** @type {Set<string>} 启用的 tokenId 集合 */
+    /** @type {Set<string>} Set of enabled tokenIds */
     this.enabledTokens = new Set();
-    /** @type {Set<string>} 有额度的 tokenId 集合 */
+    /** @type {Set<string>} Set of tokenIds with available quota */
     this.quotaAvailableTokens = new Set();
-    /** @type {boolean} 操作锁，用于事务处理 */
+    /** @type {boolean} Operation lock for transaction handling */
     this._locked = false;
   }
 
   /**
-   * 生成 token 的唯一标识符
-   * @param {Object} token - Token 对象
+   * Generate a unique identifier for a token
+   * @param {Object} token - Token object
    * @returns {Promise<string>} tokenId
    */
   async generateTokenId(token) {
@@ -29,9 +29,9 @@ class TokenPool {
   }
 
   /**
-   * 添加 token 到池中
-   * @param {Object} token - Token 对象
-   * @returns {Promise<string>} 添加的 tokenId
+   * Add a token to the pool
+   * @param {Object} token - Token object
+   * @returns {Promise<string>} Added tokenId
    */
   async add(token) {
     const tokenId = await this.generateTokenId(token);
@@ -49,9 +49,9 @@ class TokenPool {
   }
 
   /**
-   * 批量添加 tokens
-   * @param {Array<Object>} tokenArray - Token 数组
-   * @returns {Promise<Array<string>>} 添加的 tokenId 数组
+   * Batch add tokens
+   * @param {Array<Object>} tokenArray - Array of tokens
+   * @returns {Promise<Array<string>>} Array of added tokenIds
    */
   async addAll(tokenArray) {
     const tokenIds = [];
@@ -63,18 +63,18 @@ class TokenPool {
   }
 
   /**
-   * 根据 tokenId 获取 token
+   * Get a token by tokenId
    * @param {string} tokenId - Token ID
-   * @returns {Object|null} token 对象或 null
+   * @returns {Object|null} Token object or null
    */
   get(tokenId) {
     return this.tokens.get(tokenId) || null;
   }
 
   /**
-   * 根据 refresh_token 查找 tokenId
+   * Find tokenId by refresh_token
    * @param {string} refreshToken - refresh_token
-   * @returns {Promise<string|null>} tokenId 或 null
+   * @returns {Promise<string|null>} tokenId or null
    */
   async findTokenId(refreshToken) {
     const salt = await this.store.getSalt();
@@ -83,9 +83,9 @@ class TokenPool {
   }
 
   /**
-   * 根据 refresh_token 查找 token
+   * Find a token by refresh_token
    * @param {string} refreshToken - refresh_token
-   * @returns {Promise<Object|null>} token 对象或 null
+   * @returns {Promise<Object|null>} Token object or null
    */
   async findByRefreshToken(refreshToken) {
     const tokenId = await this.findTokenId(refreshToken);
@@ -93,19 +93,19 @@ class TokenPool {
   }
 
   /**
-   * 更新 token
+   * Update a token
    * @param {string} tokenId - Token ID
-   * @param {Object} updates - 更新内容
-   * @returns {boolean} 是否成功
+   * @param {Object} updates - Fields to update
+   * @returns {boolean} Whether the update succeeded
    */
   update(tokenId, updates) {
     const token = this.tokens.get(tokenId);
     if (!token) return false;
 
-    // 更新 token 数据
+    // Update token data
     Object.assign(token, updates);
 
-    // 更新启用状态
+    // Update enabled state
     if (updates.enable !== undefined) {
       if (updates.enable) {
         this.enabledTokens.add(tokenId);
@@ -114,7 +114,7 @@ class TokenPool {
       }
     }
 
-    // 更新额度状态
+    // Update quota state
     if (updates.hasQuota !== undefined) {
       if (updates.hasQuota) {
         this.quotaAvailableTokens.add(tokenId);
@@ -127,9 +127,9 @@ class TokenPool {
   }
 
   /**
-   * 禁用 token
+   * Disable a token
    * @param {string} tokenId - Token ID
-   * @returns {boolean} 是否成功
+   * @returns {boolean} Whether the operation succeeded
    */
   disable(tokenId) {
     const token = this.tokens.get(tokenId);
@@ -141,9 +141,9 @@ class TokenPool {
   }
 
   /**
-   * 启用 token
+   * Enable a token
    * @param {string} tokenId - Token ID
-   * @returns {boolean} 是否成功
+   * @returns {boolean} Whether the operation succeeded
    */
   enable(tokenId) {
     const token = this.tokens.get(tokenId);
@@ -155,9 +155,9 @@ class TokenPool {
   }
 
   /**
-   * 标记 token 额度耗尽
+   * Mark a token's quota as exhausted
    * @param {string} tokenId - Token ID
-   * @returns {boolean} 是否成功
+   * @returns {boolean} Whether the operation succeeded
    */
   markQuotaExhausted(tokenId) {
     const token = this.tokens.get(tokenId);
@@ -169,9 +169,9 @@ class TokenPool {
   }
 
   /**
-   * 恢复 token 额度
+   * Restore a token's quota
    * @param {string} tokenId - Token ID
-   * @returns {boolean} 是否成功
+   * @returns {boolean} Whether the operation succeeded
    */
   restoreQuota(tokenId) {
     const token = this.tokens.get(tokenId);
@@ -183,9 +183,9 @@ class TokenPool {
   }
 
   /**
-   * 删除 token
+   * Remove a token
    * @param {string} tokenId - Token ID
-   * @returns {boolean} 是否成功
+   * @returns {boolean} Whether the operation succeeded
    */
   remove(tokenId) {
     const result = this.tokens.delete(tokenId);
@@ -197,7 +197,7 @@ class TokenPool {
   }
 
   /**
-   * 清空池
+   * Clear the pool
    */
   clear() {
     this.tokens.clear();
@@ -206,24 +206,24 @@ class TokenPool {
   }
 
   /**
-   * 获取所有启用的 tokens
-   * @returns {Array<Object>} token 数组
+   * Get all enabled tokens
+   * @returns {Array<Object>} Array of tokens
    */
   getEnabled() {
     return Array.from(this.enabledTokens).map(id => this.tokens.get(id));
   }
 
   /**
-   * 获取所有有额度的 tokens
-   * @returns {Array<Object>} token 数组
+   * Get all tokens with available quota
+   * @returns {Array<Object>} Array of tokens
    */
   getWithQuota() {
     return Array.from(this.quotaAvailableTokens).map(id => this.tokens.get(id));
   }
 
   /**
-   * 获取所有启用且有额度的 tokens
-   * @returns {Array<Object>} token 数组
+   * Get all tokens that are both enabled and have available quota
+   * @returns {Array<Object>} Array of tokens
    */
   getEnabledWithQuota() {
     const enabledWithQuota = new Set(
@@ -233,105 +233,105 @@ class TokenPool {
   }
 
   /**
-   * 获取所有 tokens
-   * @returns {Array<Object>} token 数组
+   * Get all tokens
+   * @returns {Array<Object>} Array of tokens
    */
   getAll() {
     return Array.from(this.tokens.values());
   }
 
   /**
-   * 获取所有 tokenIds
-   * @returns {Array<string>} tokenId 数组
+   * Get all tokenIds
+   * @returns {Array<string>} Array of tokenIds
    */
   getAllIds() {
     return Array.from(this.tokens.keys());
   }
 
   /**
-   * 获取启用的 tokenIds
-   * @returns {Array<string>} tokenId 数组
+   * Get enabled tokenIds
+   * @returns {Array<string>} Array of tokenIds
    */
   getEnabledIds() {
     return Array.from(this.enabledTokens);
   }
 
   /**
-   * 获取有额度的 tokenIds
-   * @returns {Array<string>} tokenId 数组
+   * Get tokenIds with available quota
+   * @returns {Array<string>} Array of tokenIds
    */
   getQuotaAvailableIds() {
     return Array.from(this.quotaAvailableTokens);
   }
 
   /**
-   * 获取启用且有额度的 tokenIds
-   * @returns {Array<string>} tokenId 数组
+   * Get tokenIds that are both enabled and have available quota
+   * @returns {Array<string>} Array of tokenIds
    */
   getEnabledWithQuotaIds() {
     return [...this.enabledTokens].filter(id => this.quotaAvailableTokens.has(id));
   }
 
   /**
-   * 检查 token 是否存在
+   * Check whether a token exists
    * @param {string} tokenId - Token ID
-   * @returns {boolean} 是否存在
+   * @returns {boolean} Whether it exists
    */
   has(tokenId) {
     return this.tokens.has(tokenId);
   }
 
   /**
-   * 检查 token 是否启用
+   * Check whether a token is enabled
    * @param {string} tokenId - Token ID
-   * @returns {boolean} 是否启用
+   * @returns {boolean} Whether it is enabled
    */
   isEnabled(tokenId) {
     return this.enabledTokens.has(tokenId);
   }
 
   /**
-   * 检查 token 是否有额度
+   * Check whether a token has quota
    * @param {string} tokenId - Token ID
-   * @returns {boolean} 是否有额度
+   * @returns {boolean} Whether it has quota
    */
   hasQuota(tokenId) {
     return this.quotaAvailableTokens.has(tokenId);
   }
 
   /**
-   * 获取池大小
-   * @returns {number} token 总数
+   * Get the pool size
+   * @returns {number} Total number of tokens
    */
   size() {
     return this.tokens.size;
   }
 
   /**
-   * 获取启用的 token 数量
-   * @returns {number} 启用的 token 数量
+   * Get the number of enabled tokens
+   * @returns {number} Number of enabled tokens
    */
   enabledSize() {
     return this.enabledTokens.size;
   }
 
   /**
-   * 获取有额度的 token 数量
-   * @returns {number} 有额度的 token 数量
+   * Get the number of tokens with available quota
+   * @returns {number} Number of tokens with quota
    */
   quotaAvailableSize() {
     return this.quotaAvailableTokens.size;
   }
 
   /**
-   * 重置所有 token 的额度状态
+   * Reset quota status for all tokens
    */
   resetAllQuotas() {
-    log.warn('重置所有 token 的额度状态');
+    log.warn('Resetting quota status for all tokens');
     for (const token of this.tokens.values()) {
       token.hasQuota = true;
     }
-    // 重建额度可用集合
+    // Rebuild quota-available set
     this.quotaAvailableTokens.clear();
     for (const tokenId of this.tokens.keys()) {
       this.quotaAvailableTokens.add(tokenId);
@@ -339,12 +339,12 @@ class TokenPool {
   }
 
   /**
-   * 执行事务操作（带锁）
-   * @param {Function} fn - 要执行的操作函数
-   * @returns {Promise<any>} 操作结果
+   * Execute a transactional operation (with lock)
+   * @param {Function} fn - Operation function to execute
+   * @returns {Promise<any>} Operation result
    */
   async transaction(fn) {
-    // 简单的自旋锁
+    // Simple spin lock
     while (this._locked) {
       await new Promise(resolve => setTimeout(resolve, 10));
     }
@@ -358,9 +358,9 @@ class TokenPool {
   }
 
   /**
-   * 带事务的禁用操作
+   * Disable a token inside a transaction
    * @param {string} tokenId - Token ID
-   * @returns {Promise<boolean>} 是否成功
+   * @returns {Promise<boolean>} Whether the operation succeeded
    */
   async disableWithTransaction(tokenId) {
     return this.transaction(() => {
@@ -369,9 +369,9 @@ class TokenPool {
   }
 
   /**
-   * 带事务的删除操作
+   * Remove a token inside a transaction
    * @param {string} tokenId - Token ID
-   * @returns {Promise<boolean>} 是否成功
+   * @returns {Promise<boolean>} Whether the operation succeeded
    */
   async removeWithTransaction(tokenId) {
     return this.transaction(() => {

@@ -1,23 +1,23 @@
-// 主入口：初始化和事件绑定
+// Main entry point: initialization and event binding
 
-// 页面加载时初始化
+// Initialize on page load
 initFontSize();
 initSensitiveInfo();
-initFilterState(); // 恢复筛选状态
+initFilterState(); // Restore filter state
 
-// 检查登录状态并初始化
+// Check login status and initialize
 (async function initApp() {
     try {
-        // 检查是否已登录（通过 Cookie）
+        // Check if logged in (via Cookie)
         const loggedIn = await checkLoginStatus();
         
-        // 验证完成，切换到 auth-ready 状态
+        // Verification complete, switch to auth-ready state
         document.documentElement.classList.remove('auth-checking');
         document.documentElement.classList.add('auth-ready');
         
         if (loggedIn) {
             showMainContent();
-            // 恢复Tab状态，switchTab 内部会根据 tab 类型加载对应数据
+            // Restore Tab state; switchTab loads corresponding data based on tab type
             const savedTab = localStorage.getItem('currentTab');
             if (savedTab === 'settings') {
                 switchTab('settings', false);
@@ -26,18 +26,18 @@ initFilterState(); // 恢复筛选状态
             } else if (savedTab === 'geminicli') {
                 switchTab('geminicli', false);
             } else {
-                // 默认显示 tokens 页面
+                // Default to tokens page
                 switchTab('tokens', false);
             }
         }
     } catch (e) {
-        // 验证失败也要切换状态，显示登录框
+        // Switch state even on failure so the login form is displayed
         document.documentElement.classList.remove('auth-checking');
         document.documentElement.classList.add('auth-ready');
     }
 })();
 
-// 登录表单提交
+// Login form submission
 document.getElementById('login').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
@@ -49,7 +49,7 @@ document.getElementById('login').addEventListener('submit', async (e) => {
     btn.disabled = true;
     btn.classList.add('loading');
     const originalText = btn.textContent;
-    btn.textContent = '登录中';
+    btn.textContent = 'Logging in';
     
     try {
         const response = await fetch('/admin/login', {
@@ -61,16 +61,16 @@ document.getElementById('login').addEventListener('submit', async (e) => {
         
         const data = await response.json();
         if (data.success) {
-            // 不再存储 token 到 localStorage，使用 HttpOnly Cookie
-            showToast('登录成功', 'success');
+            // No longer store token in localStorage; uses HttpOnly Cookie
+            showToast('Login successful', 'success');
             showMainContent();
             loadTokens();
             loadConfig();
         } else {
-            showToast(data.message || '用户名或密码错误', 'error');
+            showToast(data.message || 'Invalid username or password', 'error');
         }
     } catch (error) {
-        showToast('登录失败: ' + error.message, 'error');
+        showToast('Login failed: ' + error.message, 'error');
     } finally {
         btn.disabled = false;
         btn.classList.remove('loading');
@@ -78,5 +78,5 @@ document.getElementById('login').addEventListener('submit', async (e) => {
     }
 });
 
-// 配置表单提交
+// Config form submission
 document.getElementById('configForm').addEventListener('submit', saveConfig);

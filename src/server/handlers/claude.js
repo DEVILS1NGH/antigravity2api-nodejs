@@ -1,6 +1,6 @@
 /**
- * Claude 格式处理器
- * 处理 /v1/messages 请求，支持流式和非流式响应
+ * Claude format handler
+ * Handles /v1/messages requests with streaming and non-streaming responses
  */
 
 import { generateAssistantResponse, generateAssistantResponseNoStream, getModelsWithQuotas } from '../../api/client.js';
@@ -21,9 +21,9 @@ import {
 } from '../stream.js';
 
 /**
- * 创建 Claude 流式事件
- * @param {string} eventType - 事件类型
- * @param {Object} data - 事件数据
+ * Create a Claude SSE streaming event
+ * @param {string} eventType - Event type
+ * @param {Object} data - Event payload
  * @returns {string}
  */
 export const createClaudeStreamEvent = (eventType, data) => {
@@ -31,23 +31,10 @@ export const createClaudeStreamEvent = (eventType, data) => {
 };
 
 /**
- * 创建 Claude 非流式响应
- * @param {string} id - 消息ID
- * @param {string} model - 模型名称
- * @param {string|null} content - 文本内容
- * @param {string|null} reasoning - 思维链内容
- * @param {string|null} reasoningSignature - 思维链签名
- * @param {Array|null} toolCalls - 工具调用
- * @param {string} stopReason - 停止原因
- * @param {Object|null} usage - 使用量统计
- * @returns {Object}
- */
-
-/**
- * 处理 Claude 格式的聊天请求
- * @param {Request} req - Express请求对象
- * @param {Response} res - Express响应对象
- * @param {boolean} isStream - 是否流式响应
+ * Handle Claude-format chat requests
+ * @param {Request} req - Express request object
+ * @param {Response} res - Express response object
+ * @param {boolean} isStream - Whether to stream the response
  */
 export const handleClaudeRequest = async (req, res, isStream) => {
   const body = req.body || {};
@@ -62,7 +49,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
       return res.status(400).json(buildClaudeErrorPayload({ message: 'model is required' }, 400));
     }
 
-    // 使用统一参数规范化模块处理 Claude 格式参数
+    // Normalize Claude-format parameters using the unified parameter normalizer
     const parameters = normalizeClaudeParameters(rawParams);
 
     const isImageModel = model.includes('-image');
@@ -83,7 +70,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
     };
 
     if (!await applyTokenState(await tokenManager.getToken(model))) {
-      throw new Error('没有可用的token，请运行 npm run login 获取token');
+      throw new Error('No available tokens. Please run npm run login to obtain a token');
     }
 
     const refreshQuota = async () => {
@@ -92,7 +79,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
       quotaManager.updateQuota(tokenId, quotas);
     };
 
-    // 创建 with429Retry 选项
+    // Build with429Retry options
     const createRetryOptions = (prefix) => ({
       loggerPrefix: prefix,
       onAttempt: () => tokenManager.recordRequest(token, model),
@@ -121,7 +108,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
         let currentBlockType = null;
         let reasoningSent = false;
 
-        // 发送 message_start
+        // Send message_start
         res.write(createClaudeStreamEvent('message_start', {
           type: "message_start",
           message: {
@@ -137,7 +124,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
         }));
 
         if (isImageModel) {
-          // 生图模型：使用非流式获取结果后以流式格式返回
+          // Image model: fetch non-streaming result and return in streaming format
           const { content, usage } = await with429Retry(
             (attempt, shouldUseCredits) => {
               const actualRequestBody = shouldUseCredits 
@@ -149,7 +136,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
             createRetryOptions('claude.stream.image ')
           );
 
-          // 发送文本块
+          // Send text block
           res.write(createClaudeStreamEvent('content_block_start', {
             type: "content_block_start",
             index: 0,
@@ -165,7 +152,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
             index: 0
           }));
 
-          // 发送 message_delta 和 message_stop
+          // Send message_delta and message_stop
           res.write(createClaudeStreamEvent('message_delta', {
             type: "message_delta",
             delta: { stop_reason: 'end_turn', stop_sequence: null },
@@ -189,9 +176,9 @@ export const handleClaudeRequest = async (req, res, isStream) => {
               if (data.type === 'usage') {
                 usageData = data.usage;
               } else if (data.type === 'reasoning') {
-                // 思维链内容 - 使用 thinking 类型
+                // Chain-of-thought content - emit as thinking block
                 if (!reasoningSent) {
-                  // 如果之前已经发送了 text block，先关闭它
+                  // Close any previously opened text block first
                   if (currentBlockType === 'text') {
                     res.write(createClaudeStreamEvent('content_block_stop', {
                       type: "content_block_stop",
@@ -200,7 +187,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
                     contentIndex++;
                     currentBlockType = null;
                   }
-                  // 开始思维块
+                  // Start thinking block
                   const contentBlock = { type: "thinking", thinking: "" };
                   if (data.thoughtSignature && config.passSignatureToClient) {
                     contentBlock.signature = data.thoughtSignature;
@@ -213,7 +200,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
                   currentBlockType = 'thinking';
                   reasoningSent = true;
                 }
-                // 发送思维增量
+                // Send thinking delta
                 const delta = { type: "thinking_delta", thinking: data.reasoning_content || '' };
                 if (data.thoughtSignature && config.passSignatureToClient) {
                   delta.signature = data.thoughtSignature;
@@ -225,7 +212,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
                 }));
               } else if (data.type === 'tool_calls') {
                 hasToolCall = true;
-                // 结束之前的块（如果有）
+                // Close previous block if any
                 if (currentBlockType) {
                   res.write(createClaudeStreamEvent('content_block_stop', {
                     type: "content_block_stop",
@@ -233,7 +220,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
                   }));
                   contentIndex++;
                 }
-                // 工具调用
+                // Tool calls
                 for (const tc of data.tool_calls) {
                   try {
                     const inputObj = JSON.parse(tc.function.arguments);
@@ -246,7 +233,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
                       index: contentIndex,
                       content_block: toolContentBlock
                     }));
-                    // 发送 input 增量
+                    // Send input delta
                     res.write(createClaudeStreamEvent('content_block_delta', {
                       type: "content_block_delta",
                       index: contentIndex,
@@ -258,21 +245,21 @@ export const handleClaudeRequest = async (req, res, isStream) => {
                     }));
                     contentIndex++;
                   } catch (e) {
-                    // 解析失败，跳过
+                    // Skip on parse failure
                   }
                 }
                 currentBlockType = null;
               } else {
-                // 普通文本内容
+                // Regular text content
                 const textContent = data.content || '';
 
-                // 如果 thinking 还没发送且内容是空的，跳过（避免在 thinking 之前创建空的 text block）
+                // Skip empty text before thinking is sent (avoid creating an empty text block ahead of thinking)
                 if (!reasoningSent && !textContent) {
                   return;
                 }
 
                 if (currentBlockType === 'thinking') {
-                  // 结束思维块
+                  // Close thinking block
                   res.write(createClaudeStreamEvent('content_block_stop', {
                     type: "content_block_stop",
                     index: contentIndex
@@ -281,7 +268,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
                   currentBlockType = null;
                 }
                 if (currentBlockType !== 'text') {
-                  // 开始文本块
+                  // Start text block
                   res.write(createClaudeStreamEvent('content_block_start', {
                     type: "content_block_start",
                     index: contentIndex,
@@ -289,7 +276,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
                   }));
                   currentBlockType = 'text';
                 }
-                // 发送文本增量
+                // Send text delta
                 res.write(createClaudeStreamEvent('content_block_delta', {
                   type: "content_block_delta",
                   index: contentIndex,
@@ -302,7 +289,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
           createRetryOptions('claude.stream ')
         );
 
-        // 结束最后一个内容块
+        // Close the final content block
         if (currentBlockType) {
           res.write(createClaudeStreamEvent('content_block_stop', {
             type: "content_block_stop",
@@ -310,7 +297,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
           }));
         }
 
-        // 发送 message_delta
+        // Send message_delta
         const stopReason = hasToolCall ? 'tool_use' : 'end_turn';
         res.write(createClaudeStreamEvent('message_delta', {
           type: "message_delta",
@@ -318,7 +305,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
           usage: usageData ? { output_tokens: usageData.completion_tokens || 0 } : { output_tokens: 0 }
         }));
 
-        // 发送 message_stop
+        // Send message_stop
         res.write(createClaudeStreamEvent('message_stop', {
           type: "message_stop"
         }));
@@ -332,11 +319,11 @@ export const handleClaudeRequest = async (req, res, isStream) => {
           res.write(createClaudeStreamEvent('error', buildClaudeErrorPayload(error, statusCode)));
           res.end();
         }
-        logger.error('Claude 流式请求失败:', error.message);
+        logger.error('Claude streaming request failed:', error.message);
         return;
       }
     } else if (config.fakeNonStream && !isImageModel) {
-      // 假非流模式：使用流式API获取数据，组装成非流式响应
+      // Fake non-stream mode: fetch via streaming API and assemble a non-streaming response
       req.setTimeout(0);
       res.setTimeout(0);
 
@@ -386,13 +373,13 @@ export const handleClaudeRequest = async (req, res, isStream) => {
 
         res.json(response);
       } catch (error) {
-        logger.error('Claude 假非流请求失败:', error.message);
+        logger.error('Claude fake non-stream request failed:', error.message);
         if (res.headersSent) return;
         const statusCode = error.statusCode || error.status || 500;
         res.status(statusCode).json(buildClaudeErrorPayload(error, statusCode));
       }
     } else {
-      // 非流式请求
+      // Non-streaming request
       req.setTimeout(0);
       res.setTimeout(0);
 
@@ -423,7 +410,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
       res.json(response);
     }
   } catch (error) {
-    logger.error('Claude 请求失败:', error.message);
+    logger.error('Claude request failed:', error.message);
     if (res.headersSent) return;
     const statusCode = error.statusCode || error.status || 500;
     res.status(statusCode).json(buildClaudeErrorPayload(error, statusCode));

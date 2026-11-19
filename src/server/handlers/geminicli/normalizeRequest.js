@@ -2,11 +2,11 @@ import { detectRequestFormat } from '../../../utils/converters/geminicli.js';
 import { validateIncomingChatRequest } from '../../validators/chat.js';
 
 /**
- * 规范化 GeminiCLI 入口请求：
- * - 检测格式（OpenAI/Gemini/Claude）
- * - 判定 stream（Gemini 由路由 _isStream 标记决定）
- * - 校验必填字段
- * - 清理内部标记
+ * Normalize an incoming GeminiCLI request:
+ * - Detect format (OpenAI/Gemini/Claude)
+ * - Determine stream flag (for Gemini, set by the route's _isStream flag)
+ * - Validate required fields
+ * - Strip internal flags
  *
  * @param {any} requestBody
  * @param {('openai'|'gemini'|'claude'|null)} forceFormat
