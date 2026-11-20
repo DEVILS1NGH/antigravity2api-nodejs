@@ -71,6 +71,9 @@ function handleClaudeAssistantMessage(message, antigravityMessages, enableThinki
   }
 
   const hasContent = textContent && textContent.trim() !== '';
+  if (!hasContent && toolCalls.length === 0) {
+    return;
+  }
   const parts = [];
   
   if (enableThinking) {
@@ -134,6 +137,23 @@ function claudeMessageToAntigravity(claudeMessages, enableThinking, actualModelN
       handleClaudeAssistantMessage(message, antigravityMessages, enableThinking, actualModelName, sessionId, hasTools);
     }
   }
+
+  // Claude 5.5 does not support assistant message prefill ("The conversation must end with a user message.")
+  const isClaude = actualModelName && actualModelName.toLowerCase().includes('claude');
+  if (isClaude && antigravityMessages.length > 0 && antigravityMessages[antigravityMessages.length - 1].role === 'model') {
+    const lastModelMsg = antigravityMessages.pop();
+    const prefillText = (lastModelMsg.parts || [])
+      .filter(p => !p.thought && typeof p.text === 'string' && p.text.trim())
+      .map(p => p.text.trim())
+      .join('\n');
+    if (prefillText) {
+      pushUserMessage({ text: `[Begin your response with: ${prefillText}]`, images: [] }, antigravityMessages);
+    }
+  }
+  if (antigravityMessages.length === 0) {
+    pushUserMessage({ text: ' ', images: [] }, antigravityMessages);
+  }
+
   return antigravityMessages;
 }
 

@@ -115,6 +115,8 @@ export const handleOpenAIRequest = async (req, res) => {
         } else {
           let hasToolCall = false;
           let usageData = null;
+          let hasEmittedTextContent = false;
+          let accumulatedReasoning = '';
 
           await with429Retry(
             (attempt, shouldUseCredits) => {
@@ -125,6 +127,9 @@ export const handleOpenAIRequest = async (req, res) => {
                 if (data.type === 'usage') {
                   usageData = data.usage;
                 } else if (data.type === 'reasoning') {
+                  if (data.reasoning_content) {
+                    accumulatedReasoning += data.reasoning_content;
+                  }
                   const delta = { reasoning_content: data.reasoning_content };
                   if (data.thoughtSignature && config.passSignatureToClient) {
                     delta.thoughtSignature = data.thoughtSignature;
@@ -144,14 +149,23 @@ export const handleOpenAIRequest = async (req, res) => {
                   const delta = { tool_calls: toolCallsWithIndex };
                   writeStreamData(res, createStreamChunk(id, created, model, delta));
                 } else {
-                  const delta = { content: data.content };
-                  writeStreamData(res, createStreamChunk(id, created, model, delta));
+                  if (data.content && data.content.length > 0) {
+                    hasEmittedTextContent = true;
+                    const delta = { content: data.content };
+                    writeStreamData(res, createStreamChunk(id, created, model, delta));
+                  }
                 }
               });
             },
             safeRetries,
             createRetryOptions('chat.stream ')
           );
+
+          // Fallback: if the model only emitted thought/reasoning tokens and zero visible content tokens,
+          // emit the accumulated reasoning as content so clients never display an empty reply.
+          if (!hasEmittedTextContent && !hasToolCall && accumulatedReasoning.trim().length > 0) {
+            writeStreamData(res, createStreamChunk(id, created, model, { content: accumulatedReasoning }));
+          }
 
           writeStreamData(res, { ...createStreamChunk(id, created, model, {}, hasToolCall ? 'tool_calls' : 'stop'), usage: usageData });
         }
@@ -204,25 +218,15 @@ export const handleOpenAIRequest = async (req, res) => {
           createRetryOptions('chat.fake_no_stream ')
         );
 
-        // Build non-streaming response
-        const message = { role: 'assistant' };
-        if (reasoningContent) message.reasoning_content = reasoningContent;
-        if (reasoningSignature && config.passSignatureToClient) message.thoughtSignature = reasoningSignature;
-        message.content = content;
-
-        if (toolCalls.length > 0) {
-          if (config.passSignatureToClient) {
-            message.tool_calls = toolCalls;
-          } else {
-            message.tool_calls = toolCalls.map(({ thoughtSignature, ...rest }) => rest);
-          }
-        }
+        const finalContent = (!content && toolCalls.length === 0 && reasoningContent)
+          ? reasoningContent
+          : content;
 
         res.json(createOpenAIChatCompletionResponse({
           id,
           created,
           model,
-          content,
+          content: finalContent,
           reasoningContent,
           reasoningSignature,
           toolCalls,
@@ -252,27 +256,16 @@ export const handleOpenAIRequest = async (req, res) => {
         createRetryOptions('chat.no_stream ')
       );
 
-      // DeepSeek format: reasoning_content precedes content
-      const message = { role: 'assistant' };
-      if (reasoningContent) message.reasoning_content = reasoningContent;
-      if (reasoningSignature && config.passSignatureToClient) message.thoughtSignature = reasoningSignature;
-      message.content = content;
-
-      if (toolCalls.length > 0) {
-        // Determine whether to pass through tool call signatures based on config
-        if (config.passSignatureToClient) {
-          message.tool_calls = toolCalls;
-        } else {
-          message.tool_calls = toolCalls.map(({ thoughtSignature, ...rest }) => rest);
-        }
-      }
+      const finalContent = (!content && toolCalls.length === 0 && reasoningContent)
+        ? reasoningContent
+        : content;
 
       // Use pre-built response helper to reduce memory allocations
       res.json(createOpenAIChatCompletionResponse({
         id,
         created,
         model,
-        content,
+        content: finalContent,
         reasoningContent,
         reasoningSignature,
         toolCalls,

@@ -220,7 +220,7 @@ export function generateGenerationConfig(parameters, enableThinking, actualModel
     temperature: parameters.temperature ?? config.defaults.temperature,
     top_p: parameters.top_p ?? config.defaults.top_p,
     top_k: parameters.top_k ?? config.defaults.top_k,
-    max_tokens: parameters.max_tokens ?? config.defaults.max_tokens,
+    max_tokens: parameters.max_tokens ?? parameters.max_completion_tokens ?? config.defaults.max_tokens,
     thinking_budget: parameters.thinking_budget,
     response_format: parameters.response_format,
   };

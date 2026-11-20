@@ -161,12 +161,22 @@ export function toGenerationConfig(normalized, enableThinking, actualModelName) 
     }
   }
 
-  if (actualEnableThinking && maxOutputTokens <= thinkingBudget) {
-    if (maxOutputTokens <= 1024){
-      maxOutputTokens = 2048;
-      thinkingBudget = 1024;
-    } else {
-      thinkingBudget = Math.max(1024, Math.floor(maxOutputTokens * 0.8));
+  if (actualEnableThinking) {
+    const isClaude = actualModelName && actualModelName.toLowerCase().includes('claude');
+    if (isClaude) {
+      // On Claude models, maxOutputTokens is the combined total of thinkingBudget + visible output tokens.
+      // Always reserve at least 4096 visible output tokens above thinkingBudget so thinking never starves the reply.
+      const desiredVisibleTokens = Math.max(Number(maxOutputTokens) || 4096, 4096);
+      if (!maxOutputTokens || maxOutputTokens <= thinkingBudget + 1024) {
+        maxOutputTokens = Math.min(64000, thinkingBudget + desiredVisibleTokens);
+      }
+    } else if (maxOutputTokens <= thinkingBudget) {
+      if (maxOutputTokens <= 1024) {
+        maxOutputTokens = 2048;
+        thinkingBudget = 1024;
+      } else {
+        thinkingBudget = Math.max(1024, Math.floor(maxOutputTokens * 0.8));
+      }
     }
   }
 

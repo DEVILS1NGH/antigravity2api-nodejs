@@ -46,7 +46,18 @@ function extractImagesFromContent(content) {
 
 function handleAssistantMessage(message, antigravityMessages, enableThinking, actualModelName, sessionId, hasTools) {
   const hasToolCalls = message.tool_calls && message.tool_calls.length > 0;
-  const hasContent = message.content && message.content.trim() !== '';
+  const textContent = typeof message.content === 'string'
+    ? message.content
+    : (Array.isArray(message.content)
+      ? message.content.filter(item => item.type === 'text').map(item => item.text || '').join('')
+      : '');
+  const hasContent = textContent.trim() !== '';
+
+  // Skip completely empty assistant messages so we don't send empty model parts
+  if (!hasContent && !hasToolCalls) {
+    return;
+  }
+
   const { reasoningSignature, reasoningContent, toolSignature, toolContent } = getSignatureContext(sessionId, actualModelName, hasTools);
   
   const toolCalls = hasToolCalls
@@ -85,7 +96,7 @@ function handleAssistantMessage(message, antigravityMessages, enableThinking, ac
     }
   }
   if (hasContent) {
-    const part = { text: message.content.trimEnd() };
+    const part = { text: textContent.trimEnd() };
     parts.push(part);
   }
   if (!enableThinking && parts[0]) delete parts[0].thoughtSignature;
@@ -103,6 +114,9 @@ function openaiMessageToAntigravity(openaiMessages, enableThinking, actualModelN
   for (const message of openaiMessages) {
     if (message.role === 'user' || message.role === 'system') {
       const extracted = extractImagesFromContent(message.content);
+      if (message.role === 'system' && !extracted.text.trim() && extracted.images.length === 0) {
+        continue;
+      }
       pushUserMessage(extracted, antigravityMessages);
     } else if (message.role === 'assistant') {
       handleAssistantMessage(message, antigravityMessages, enableThinking, actualModelName, sessionId, hasTools);
@@ -110,7 +124,23 @@ function openaiMessageToAntigravity(openaiMessages, enableThinking, actualModelN
       handleToolCall(message, antigravityMessages);
     }
   }
-  //console.log(JSON.stringify(antigravityMessages,null,2));
+
+  // Claude 5.5 does not support assistant message prefill ("The conversation must end with a user message.")
+  const isClaude = actualModelName && actualModelName.toLowerCase().includes('claude');
+  if (isClaude && antigravityMessages.length > 0 && antigravityMessages[antigravityMessages.length - 1].role === 'model') {
+    const lastModelMsg = antigravityMessages.pop();
+    const prefillText = (lastModelMsg.parts || [])
+      .filter(p => !p.thought && typeof p.text === 'string' && p.text.trim())
+      .map(p => p.text.trim())
+      .join('\n');
+    if (prefillText) {
+      pushUserMessage({ text: `[Begin your response with: ${prefillText}]`, images: [] }, antigravityMessages);
+    }
+  }
+  if (antigravityMessages.length === 0) {
+    pushUserMessage({ text: ' ', images: [] }, antigravityMessages);
+  }
+
   return antigravityMessages;
 }
 

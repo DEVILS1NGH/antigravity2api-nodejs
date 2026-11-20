@@ -118,13 +118,19 @@ function parseAndEmitStreamChunk(line, state, callback) {
             state.reasoningSignature = part.thoughtSignature;
             // Defer caching until stream ends to ensure complete thought content is collected
           }
-          callback({
-            type: 'reasoning',
-            reasoning_content: part.text || '',
-            thoughtSignature: part.thoughtSignature || state.reasoningSignature || null
-          });
+          // Skip emitting empty reasoning chunks unless signature pass-through is explicitly enabled
+          if (part.text || (part.thoughtSignature && config.passSignatureToClient)) {
+            callback({
+              type: 'reasoning',
+              reasoning_content: part.text || '',
+              thoughtSignature: part.thoughtSignature || state.reasoningSignature || null
+            });
+          }
         } else if (part.text !== undefined) {
-          callback({ type: 'text', content: part.text });
+          // Skip empty text carrier parts (e.g., Claude 5.5 opening/closing signature frames with text: "")
+          if (part.text.length > 0) {
+            callback({ type: 'text', content: part.text });
+          }
         } else if (part.functionCall) {
           const toolCall = convertToToolCall(part.functionCall, state.sessionId, state.model);
           const sig = part.thoughtSignature || state.reasoningSignature || null;
