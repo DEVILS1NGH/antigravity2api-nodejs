@@ -11,7 +11,7 @@ import memoryManager from '../utils/memoryManager.js';
 import { parseEnvFile, updateEnvFile } from '../utils/envParser.js';
 import { reloadConfig } from '../utils/configReloader.js';
 import { deepMerge } from '../utils/deepMerge.js';
-import { getModelsWithQuotas } from '../api/client.js';
+import { getModelsWithQuotas, clearModelListCache } from '../api/client.js';
 import { getEnvPath } from '../utils/paths.js';
 import ipBlockManager from '../utils/ipBlockManager.js';
 import dotenv from 'dotenv';
@@ -164,6 +164,7 @@ router.post('/tokens', cookieAuthMiddleware, async (req, res) => {
 
   try {
     const result = await tokenManager.addToken(tokenData);
+    clearModelListCache();
     logger.info(`Added new token: ${access_token.substring(0, 8)}...`);
     // Return in the format expected by the frontend
     res.json({ success: true, message: 'Token added successfully', data: result });
@@ -183,6 +184,7 @@ router.put('/tokens/:tokenId', cookieAuthMiddleware, async (req, res) => {
 
   try {
     const result = await tokenManager.updateTokenById(tokenId, updates);
+    clearModelListCache();
     logger.info(`Updated token: ${tokenId}`);
     res.json(result);
   } catch (error) {
@@ -195,6 +197,7 @@ router.delete('/tokens/:tokenId', cookieAuthMiddleware, async (req, res) => {
   const { tokenId } = req.params;
   try {
     const result = await tokenManager.deleteTokenById(tokenId);
+    clearModelListCache();
     logger.info(`Deleted token: ${tokenId}`);
     res.json(result);
   } catch (error) {
@@ -206,6 +209,7 @@ router.delete('/tokens/:tokenId', cookieAuthMiddleware, async (req, res) => {
 router.post('/tokens/reload', cookieAuthMiddleware, async (req, res) => {
   try {
     await tokenManager.reload();
+    clearModelListCache();
     logger.info('Manually triggered token hot-reload');
     res.json({ success: true, message: 'Tokens reloaded' });
   } catch (error) {

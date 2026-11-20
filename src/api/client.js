@@ -84,51 +84,56 @@ const getModelCacheTTL = () => {
 let modelListCache = null;
 let modelListCacheTime = 0;
 
-// Default model list (currently supported Antigravity models, used as fallback and merged into /v1/models)
+// Default model list (verified live Antigravity models + bare aliases mapped in modelMapping)
 // Frozen with Object.freeze to prevent accidental mutation and aid V8 optimization
 const DEFAULT_MODELS = Object.freeze([
-  // Gemini 4 (Latest Frontier Models — upstream tier-suffixed IDs + bare aliases)
-  'gemini-4-carbon-high',
-  'gemini-4-carbon-medium',
-  'gemini-4-carbon-low',
-  'gemini-4-carbon',
-  'gemini-4-argon-high',
-  'gemini-4-argon-medium',
-  'gemini-4-argon-low',
-  'gemini-4-argon',
+  // Claude 5.5 (Thinking — exact Antigravity upstream tier IDs + bare aliases)
+  'claude-opus-5-5-high',
+  'claude-opus-5-5-medium',
+  'claude-opus-5-5-low',
+  'claude-opus-5-5',
+  'claude-sonnet-5-5-high',
+  'claude-sonnet-5-5-medium',
+  'claude-sonnet-5-5-low',
+  'claude-sonnet-5-5',
+  // Gemini 4 Neon
+  'gemini-4-neon-xhigh',
   'gemini-4-neon-high',
   'gemini-4-neon-medium',
   'gemini-4-neon-low',
   'gemini-4-neon',
-  'gemini-4-hydrogen-sonar',
+  // Gemini 4 Argon
+  'gemini-4-argon-high',
+  'gemini-4-argon-medium',
+  'gemini-4-argon-low',
+  'gemini-4-argon',
+  // Gemini 4 Hydrogen
+  'gemini-4-hydrogen-xhigh',
   'gemini-4-hydrogen-high',
   'gemini-4-hydrogen-medium',
   'gemini-4-hydrogen-low',
+  'gemini-4-hydrogen-sonar',
+  'gemini-4-hydrogen-tiered-xhigh',
+  'gemini-4-hydrogen-tiered-high',
   'gemini-4-hydrogen',
   // Gemini 3.8 & 3.5
+  'gemini-3.8-flash-high',
+  'gemini-3.8-flash-medium',
+  'gemini-3.8-flash-low',
   'gemini-3.8-flash-tiered',
   'gemini-3.8-flash',
   'gemini-3.5-flash-lite',
   // Gemini 3.1 & 3.0
-  'gemini-3.1-pro-high',
-  'gemini-3.1-pro-low',
   'gemini-3.1-flash-lite',
-  'gemini-3-flash',
-  // Gemini Image / Nano Banana Models
-  'gemini-nano-banana-2.1',
-  'gemini-nano-banana-2.1-2K',
-  'gemini-nano-banana-2.1-4K',
   'gemini-3.1-flash-image',
   'gemini-3.1-flash-image-2K',
   'gemini-3.1-flash-image-4K',
+  'gemini-3-flash',
   // Gemini 2.5
   'gemini-2.5-pro',
   'gemini-2.5-flash',
   'gemini-2.5-flash-thinking',
-  'gemini-2.5-flash-lite',
-  // Claude 5.5 Models (Latest supported in Antigravity)
-  'claude-opus-5-5-thinking',
-  'claude-sonnet-5-5-thinking'
+  'gemini-2.5-flash-lite'
 ]);
 
 // Models deprecated / removed from Google Antigravity
@@ -148,6 +153,14 @@ const DEPRECATED_MODELS = Object.freeze(new Set([
   'rev19-uic3-1p',
   'chat_23310'
 ]));
+
+function isExcludedUpstreamModel(modelId) {
+  if (!modelId) return true;
+  const lower = String(modelId).toLowerCase();
+  return DEPRECATED_MODELS.has(lower) ||
+    lower.endsWith('-disabled') ||
+    lower.startsWith('tab_');
+}
 
 // Generate default model list response
 function getDefaultModelList() {
@@ -416,7 +429,7 @@ export async function getAvailableModels() {
 
   const created = Math.floor(Date.now() / 1000);
   const modelList = Object.keys(data.models || {})
-    .filter(id => !DEPRECATED_MODELS.has(id.toLowerCase()))
+    .filter(id => !isExcludedUpstreamModel(id))
     .map(id => ({
       id,
       object: 'model',
@@ -592,7 +605,7 @@ export async function generateImageForSD(requestBody, token) {
   return images;
 }
 
-export async function sendRecordTrajectoryAnalytics(token, num, trajectoryId, executionId, cascadeId, modelName = "claude-opus-5-5-thinking") {
+export async function sendRecordTrajectoryAnalytics(token, num, trajectoryId, executionId, cascadeId, modelName = "claude-opus-5-5-high") {
   const trajectorybody = generateTrajectorybody(num, trajectoryId, executionId, cascadeId, modelName, token);
   const headers = buildHeaders(token);
   headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(trajectorybody)));

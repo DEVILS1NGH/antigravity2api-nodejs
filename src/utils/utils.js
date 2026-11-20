@@ -93,95 +93,124 @@ export function cleanParameters(obj) {
 // Map Anthropic official model names to Antigravity model names
 // Supports Claude Code and other clients that use official Anthropic model naming
 export function modelMapping(modelName, requestedThinkingLevel = undefined) {
-  // Dynamic matching for Anthropic official model name formats:
-  // - claude-{type}-{major}-{minor}-{date} (e.g., claude-sonnet-4-5-20250929)
-  // - claude-{type}-{major}-{date} (e.g., claude-sonnet-4-20250514)
-  // - claude-{major}-{minor}-{type}-{date} (e.g., claude-3-5-sonnet-20241022)
-  // - claude-{major}-{type}-{date} (e.g., claude-3-opus-20240229)
-  // - claude-{version}-{type}-latest (e.g., claude-3-5-sonnet-latest)
-
-  // Pattern 1: claude-{type}-{version}-{date} (Claude 4+/5+ format)
-  // e.g., claude-sonnet-5-5-20260929, claude-sonnet-4-5-20250929, claude-opus-4-20250514
-  const pattern1 = modelName.match(/^claude-(sonnet|opus|haiku)-\d+(-\d+)?-\d{8}$/);
-  if (pattern1) {
-    const type = pattern1[1];
-    if (type === 'opus') return 'claude-opus-5-5-thinking';
-    return 'claude-sonnet-5-5-thinking';
-  }
-
-  // Pattern 2: claude-{major}-{minor}-{type}-{date} (Claude 3.x format)
-  // e.g., claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022
-  const pattern2 = modelName.match(/^claude-\d+-\d+-(sonnet|opus|haiku)-\d{8}$/);
-  if (pattern2) {
-    const type = pattern2[1];
-    if (type === 'opus') return 'claude-opus-5-5-thinking';
-    return 'claude-sonnet-5-5-thinking';
-  }
-
-  // Pattern 3: claude-{major}-{type}-{date} (Claude 3 format)
-  // e.g., claude-3-opus-20240229, claude-3-sonnet-20240229
-  const pattern3 = modelName.match(/^claude-\d+-(sonnet|opus|haiku)-\d{8}$/);
-  if (pattern3) {
-    const type = pattern3[1];
-    if (type === 'opus') return 'claude-opus-5-5-thinking';
-    return 'claude-sonnet-5-5-thinking';
-  }
-
-  // Pattern 4: claude-{version}-{type}-latest
-  // e.g., claude-3-5-sonnet-latest, claude-3-opus-latest
-  const pattern4 = modelName.match(/^claude-(\d+-)?(.+)-latest$/);
-  if (pattern4) {
-    const remainder = pattern4[2];
-    if (remainder.includes('opus')) return 'claude-opus-5-5-thinking';
-    return 'claude-sonnet-5-5-thinking';
-  }
-
-  // Gemini 4 Antigravity upstream mapping:
-  // Antigravity's v1internal backend requires tier/variant-suffixed IDs
-  // (e.g., gemini-4-carbon-high, gemini-4-hydrogen-sonar) and returns 404 for bare names.
-  const lower = modelName.toLowerCase();
+  const lower = String(modelName || '').toLowerCase();
   const normalizedLevel = typeof requestedThinkingLevel === 'string'
     ? requestedThinkingLevel.trim().toLowerCase()
     : undefined;
   const validTier = ['low', 'medium', 'high', 'xhigh'].includes(normalizedLevel)
     ? normalizedLevel
     : undefined;
+  const standardTier = ['low', 'medium', 'high'].includes(normalizedLevel)
+    ? normalizedLevel
+    : (normalizedLevel === 'xhigh' ? 'high' : undefined);
 
+  // Preserve exact Antigravity Claude 5.5 tier-suffixed model IDs
+  if (/^claude-(?:opus|sonnet)-5-5-(?:low|medium|high)$/.test(lower)) {
+    return lower;
+  }
+
+  // Dynamic matching for Anthropic official model name formats:
+  // - claude-{type}-{major}-{minor}-{date} (e.g., claude-sonnet-5-5-20260929, claude-sonnet-4-5-20250929)
+  // - claude-{type}-{major}-{date} (e.g., claude-sonnet-4-20250514)
+  // - claude-{major}-{minor}-{type}-{date} (e.g., claude-3-5-sonnet-20241022)
+  // - claude-{major}-{type}-{date} (e.g., claude-3-opus-20240229)
+  // - claude-{version}-{type}-latest (e.g., claude-3-5-sonnet-latest)
+  const pattern1 = lower.match(/^claude-(sonnet|opus|haiku)-\d+(-\d+)?-\d{8}$/);
+  if (pattern1) {
+    const type = pattern1[1];
+    return type === 'opus'
+      ? `claude-opus-5-5-${standardTier || 'high'}`
+      : `claude-sonnet-5-5-${standardTier || 'high'}`;
+  }
+
+  const pattern2 = lower.match(/^claude-\d+-\d+-(sonnet|opus|haiku)-\d{8}$/);
+  if (pattern2) {
+    const type = pattern2[1];
+    return type === 'opus'
+      ? `claude-opus-5-5-${standardTier || 'high'}`
+      : `claude-sonnet-5-5-${standardTier || 'high'}`;
+  }
+
+  const pattern3 = lower.match(/^claude-\d+-(sonnet|opus|haiku)-\d{8}$/);
+  if (pattern3) {
+    const type = pattern3[1];
+    return type === 'opus'
+      ? `claude-opus-5-5-${standardTier || 'high'}`
+      : `claude-sonnet-5-5-${standardTier || 'high'}`;
+  }
+
+  const pattern4 = lower.match(/^claude-(\d+-)?(.+)-latest$/);
+  if (pattern4) {
+    const remainder = pattern4[2];
+    return remainder.includes('opus')
+      ? `claude-opus-5-5-${standardTier || 'high'}`
+      : `claude-sonnet-5-5-${standardTier || 'high'}`;
+  }
+
+  // Claude 5.5 bare / -thinking aliases & deprecated Claude 4.x fallback -> claude-*-5-5-{high|medium|low}
+  if (
+    lower === 'claude-sonnet-5-5' ||
+    lower === 'claude-sonnet-5-5-thinking' ||
+    lower === 'claude-sonnet-5.5' ||
+    lower === 'claude-sonnet-5.5-thinking' ||
+    lower.startsWith('claude-sonnet-4-')
+  ) {
+    return `claude-sonnet-5-5-${standardTier || 'high'}`;
+  }
+  if (
+    lower === 'claude-opus-5-5' ||
+    lower === 'claude-opus-5-5-thinking' ||
+    lower === 'claude-opus-5.5' ||
+    lower === 'claude-opus-5.5-thinking' ||
+    lower.startsWith('claude-opus-4-')
+  ) {
+    return `claude-opus-5-5-${standardTier || 'high'}`;
+  }
+
+  // Gemini 4 Antigravity upstream mapping:
+  // Antigravity's v1internal backend requires tier/variant-suffixed IDs
   if (lower === 'gemini-4-hydrogen') {
     return validTier ? `gemini-4-hydrogen-${validTier}` : 'gemini-4-hydrogen-sonar';
   }
-  if (lower === 'gemini-4-carbon' || lower === 'gemini-4-argon' || lower === 'gemini-4-neon') {
-    return `${lower}-${validTier || 'medium'}`;
+  if (lower === 'gemini-4-neon') {
+    return `gemini-4-neon-${validTier || 'high'}`;
+  }
+  if (lower === 'gemini-4-argon') {
+    return `gemini-4-argon-${standardTier || 'high'}`;
+  }
+  // Fallback for gemini-4-carbon* on accounts where Carbon is routed via Argon
+  if (lower === 'gemini-4-carbon' || lower.startsWith('gemini-4-carbon-')) {
+    const suffixMatch = lower.match(/^gemini-4-carbon-(low|medium|high)$/);
+    const tier = suffixMatch ? suffixMatch[1] : (standardTier || 'high');
+    return `gemini-4-argon-${tier}`;
   }
 
   // Gemini 3.8 / 3.1 / 3.0 bare alias mapping to Antigravity upstream model IDs
-  if (lower === 'gemini-3.8-flash') return 'gemini-3.8-flash-tiered';
-  if (lower === 'gemini-3.1-pro' || lower === 'gemini-3.1-pro-preview') return 'gemini-3.1-pro-high';
-  if (lower === 'gemini-3-pro' || lower === 'gemini-3-pro-preview') return 'gemini-3.1-pro-high';
+  if (lower === 'gemini-3.8-flash') {
+    return standardTier ? `gemini-3.8-flash-${standardTier}` : 'gemini-3.8-flash-tiered';
+  }
+  if (lower === 'gemini-3.1-pro' || lower === 'gemini-3.1-pro-preview' || lower === 'gemini-3.1-pro-high') {
+    return 'gemini-4-argon-high';
+  }
+  if (lower === 'gemini-3.1-pro-low') {
+    return 'gemini-4-argon-low';
+  }
+  if (lower === 'gemini-3-pro' || lower === 'gemini-3-pro-preview') {
+    return 'gemini-4-argon-high';
+  }
   if (lower === 'gemini-3-flash-preview') return 'gemini-3-flash';
-
-  // Claude 5.5 aliases & deprecated Claude 4.x fallback mapping -> Claude 5.5 (Thinking)
-  if (lower === 'claude-sonnet-5-5' || lower === 'claude-sonnet-5.5' || lower === 'claude-sonnet-5.5-thinking') {
-    return 'claude-sonnet-5-5-thinking';
-  }
-  if (lower === 'claude-opus-5-5' || lower === 'claude-opus-5.5' || lower === 'claude-opus-5.5-thinking') {
-    return 'claude-opus-5-5-thinking';
-  }
-  if (lower === 'claude-sonnet-4-5' || lower === 'claude-sonnet-4-5-thinking' || lower === 'claude-sonnet-4-6' || lower === 'claude-sonnet-4-6-thinking') {
-    return 'claude-sonnet-5-5-thinking';
-  }
-  if (lower === 'claude-opus-4-5' || lower === 'claude-opus-4-5-thinking' || lower === 'claude-opus-4-6' || lower === 'claude-opus-4-6-thinking' || lower === 'claude-opus-4-7' || lower === 'claude-opus-4-7-thinking') {
-    return 'claude-opus-5-5-thinking';
-  }
   if (modelName === 'gemini-2.5-flash-thinking') return 'gemini-2.5-flash';
   return modelName;
 }
 
 export function isEnableThinking(modelName) {
-  return modelName.includes('-thinking') ||
-    modelName.startsWith('gemini') ||
-    modelName === 'rev19-uic3-1p' ||
-    modelName === 'gpt-oss-120b-medium';
+  const lower = String(modelName || '').toLowerCase();
+  return lower.includes('-thinking') ||
+    lower.startsWith('gemini') ||
+    lower.startsWith('claude-opus-5-5') ||
+    lower.startsWith('claude-sonnet-5-5') ||
+    lower.startsWith('claude-opus-5.5') ||
+    lower.startsWith('claude-sonnet-5.5');
 }
 
 // ==================== Generation Config ====================
