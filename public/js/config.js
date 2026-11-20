@@ -187,6 +187,7 @@ async function loadConfig() {
             }
 
             loadRotationStatus();
+            loadServerInfo();
             // Show only the currently active settings section by default
             if (typeof setActiveSettingSection === 'function') {
                 setActiveSettingSection(activeSettingSectionId, false);
@@ -435,3 +436,89 @@ document.addEventListener('DOMContentLoaded', () => {
         setActiveSettingSection(activeSettingSectionId, false);
     }
 });
+
+
+// ==================== Server LAN Access Info & Credentials ====================
+async function loadServerInfo() {
+    try {
+        const response = await authFetch('/admin/server-info');
+        const result = await response.json();
+        if (!result.success || !result.data) return;
+
+        const { endpoints, credentials, allIps, port } = result.data;
+
+        const setField = (id, value, isSecret = false) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const text = value || '';
+            el.dataset.rawValue = text;
+            if (isSecret && el.dataset.masked === 'true') {
+                el.textContent = text ? '•'.repeat(Math.min(text.length, 24)) : '(empty)';
+            } else {
+                el.textContent = text || '(empty)';
+            }
+        };
+
+        setField('serverWebUiUrl', endpoints?.webUi);
+        setField('serverOpenAiUrl', endpoints?.openai);
+        setField('serverGeminiUrl', endpoints?.gemini);
+        setField('serverGeminiCliUrl', endpoints?.geminiCliOpenai);
+        setField('serverAdminUsername', credentials?.username);
+        setField('serverAdminPassword', credentials?.password, true);
+        setField('serverApiKey', credentials?.apiKey, true);
+
+        const extraIpsEl = document.getElementById('serverExtraIps');
+        if (extraIpsEl && Array.isArray(allIps) && allIps.length > 1) {
+            const listHtml = allIps
+                .map(item => `<code>http://${escapeHtml(item.address)}:${escapeHtml(String(port))}</code> <span class="ip-iface">(${escapeHtml(item.name)})</span>`)
+                .join(' · ');
+            extraIpsEl.innerHTML = `<span class="server-access-label">All Detected Network IPs:</span> ${listHtml}`;
+            extraIpsEl.style.display = 'block';
+        } else if (extraIpsEl) {
+            extraIpsEl.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Failed to load server info:', error);
+    }
+}
+
+function toggleServerSecret(elementId, btn) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const raw = el.dataset.rawValue || '';
+    const isMasked = el.dataset.masked === 'true';
+    if (isMasked) {
+        el.dataset.masked = 'false';
+        el.textContent = raw || '(empty)';
+        if (btn) btn.textContent = '👁️';
+    } else {
+        el.dataset.masked = 'true';
+        el.textContent = raw ? '•'.repeat(Math.min(raw.length, 24)) : '(empty)';
+        if (btn) btn.textContent = '🙈';
+    }
+}
+
+async function copyServerInfoValue(elementId, label) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const value = el.dataset.rawValue ?? el.textContent;
+    if (!value || value === 'Loading...') return;
+
+    try {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(value);
+        } else {
+            const textarea = document.createElement('textarea');
+            textarea.value = value;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        showToast(`Copied ${label}`, 'success');
+    } catch (err) {
+        showToast(`Failed to copy ${label}: ${err.message}`, 'error');
+    }
+}

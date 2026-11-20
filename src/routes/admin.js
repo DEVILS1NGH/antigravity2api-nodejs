@@ -1,4 +1,5 @@
 import express from 'express';
+import os from 'os';
 import { generateToken, authMiddleware, verifyToken } from '../auth/jwt.js';
 import tokenManager from '../auth/token_manager.js';
 import geminicliTokenManager from '../auth/geminicli_token_manager.js';
@@ -1177,6 +1178,65 @@ router.get('/tokens/:tokenId/quotas', cookieAuthMiddleware, async (req, res) => 
     });
   } catch (error) {
     logger.error('Failed to get quotas:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Detect the machine's non-internal LAN IPv4 addresses (prioritizing Wi-Fi / Ethernet LAN adapters)
+function getMachineLanIps() {
+  const interfaces = os.networkInterfaces();
+  const candidates = [];
+
+  for (const [name, addrs] of Object.entries(interfaces)) {
+    if (!Array.isArray(addrs)) continue;
+    for (const addr of addrs) {
+      if (addr.family !== 'IPv4' || addr.internal) continue;
+      if (addr.address.startsWith('169.254.')) continue; // skip APIPA link-local
+      const lowerName = name.toLowerCase();
+      const isVirtual = /vethernet|wsl|docker|virtualbox|vmware|hyper-v|loopback|tailscale|zerotier|hamachi|tun|tap/.test(lowerName);
+      const isPrivateLan = /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(addr.address);
+      const isPrimaryName = /^(wi-fi|wifi|wlan|ethernet|eth|en\d)/.test(lowerName);
+      const score = (isVirtual ? 0 : 10) + (isPrivateLan ? 5 : 0) + (isPrimaryName ? 3 : 0);
+      candidates.push({ name, address: addr.address, score });
+    }
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates;
+}
+
+// Get server LAN access URLs and credentials (for multi-device access, e.g., phone/tablet)
+router.get('/server-info', cookieAuthMiddleware, (req, res) => {
+  try {
+    const port = config.server.port;
+    const candidates = getMachineLanIps();
+    const primaryIp = candidates[0]?.address || '127.0.0.1';
+    const baseUrl = `http://${primaryIp}:${port}`;
+
+    res.json({
+      success: true,
+      data: {
+        ip: primaryIp,
+        allIps: candidates.map(c => ({ name: c.name, address: c.address })),
+        port,
+        baseUrl,
+        endpoints: {
+          webUi: baseUrl,
+          openai: `${baseUrl}/v1`,
+          gemini: `${baseUrl}/v1beta`,
+          claude: `${baseUrl}/v1`,
+          geminiCliOpenai: `${baseUrl}/cli/v1`,
+          geminiCliGemini: `${baseUrl}/cli/v1beta`
+        },
+        credentials: {
+          username: config.admin.username,
+          password: config.admin.password,
+          apiKey: config.security.apiKey
+        }
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to get server info:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });

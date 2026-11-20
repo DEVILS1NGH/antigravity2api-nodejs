@@ -100,13 +100,13 @@ export function modelMapping(modelName, requestedThinkingLevel = undefined) {
   // - claude-{major}-{type}-{date} (e.g., claude-3-opus-20240229)
   // - claude-{version}-{type}-latest (e.g., claude-3-5-sonnet-latest)
 
-  // Pattern 1: claude-{type}-{version}-{date} (Claude 4+ format)
-  // e.g., claude-sonnet-4-5-20250929, claude-opus-4-20250514
+  // Pattern 1: claude-{type}-{version}-{date} (Claude 4+/5+ format)
+  // e.g., claude-sonnet-5-5-20260929, claude-sonnet-4-5-20250929, claude-opus-4-20250514
   const pattern1 = modelName.match(/^claude-(sonnet|opus|haiku)-\d+(-\d+)?-\d{8}$/);
   if (pattern1) {
     const type = pattern1[1];
-    if (type === 'opus') return 'claude-opus-4-5-thinking';
-    return 'claude-sonnet-4-5';
+    if (type === 'opus') return 'claude-opus-5-5-thinking';
+    return 'claude-sonnet-5-5-thinking';
   }
 
   // Pattern 2: claude-{major}-{minor}-{type}-{date} (Claude 3.x format)
@@ -114,8 +114,8 @@ export function modelMapping(modelName, requestedThinkingLevel = undefined) {
   const pattern2 = modelName.match(/^claude-\d+-\d+-(sonnet|opus|haiku)-\d{8}$/);
   if (pattern2) {
     const type = pattern2[1];
-    if (type === 'opus') return 'claude-opus-4-5-thinking';
-    return 'claude-sonnet-4-5';
+    if (type === 'opus') return 'claude-opus-5-5-thinking';
+    return 'claude-sonnet-5-5-thinking';
   }
 
   // Pattern 3: claude-{major}-{type}-{date} (Claude 3 format)
@@ -123,8 +123,8 @@ export function modelMapping(modelName, requestedThinkingLevel = undefined) {
   const pattern3 = modelName.match(/^claude-\d+-(sonnet|opus|haiku)-\d{8}$/);
   if (pattern3) {
     const type = pattern3[1];
-    if (type === 'opus') return 'claude-opus-4-5-thinking';
-    return 'claude-sonnet-4-5';
+    if (type === 'opus') return 'claude-opus-5-5-thinking';
+    return 'claude-sonnet-5-5-thinking';
   }
 
   // Pattern 4: claude-{version}-{type}-latest
@@ -132,8 +132,8 @@ export function modelMapping(modelName, requestedThinkingLevel = undefined) {
   const pattern4 = modelName.match(/^claude-(\d+-)?(.+)-latest$/);
   if (pattern4) {
     const remainder = pattern4[2];
-    if (remainder.includes('opus')) return 'claude-opus-4-5-thinking';
-    return 'claude-sonnet-4-5';
+    if (remainder.includes('opus')) return 'claude-opus-5-5-thinking';
+    return 'claude-sonnet-5-5-thinking';
   }
 
   // Gemini 4 Antigravity upstream mapping:
@@ -160,13 +160,19 @@ export function modelMapping(modelName, requestedThinkingLevel = undefined) {
   if (lower === 'gemini-3-pro' || lower === 'gemini-3-pro-preview') return 'gemini-3.1-pro-high';
   if (lower === 'gemini-3-flash-preview') return 'gemini-3-flash';
 
-  // Original logic (kept for backward compatibility)
-  if (modelName === 'claude-sonnet-4-5-thinking') return 'claude-sonnet-4-5';
-  if (modelName === 'claude-sonnet-4-6-thinking') return 'claude-sonnet-4-6';
-  // if (modelName === 'claude-opus-4-5') return 'claude-opus-4-5-thinking';
-  if (modelName === 'claude-opus-4-5') return 'claude-opus-4-6-thinking';
-  if (modelName === 'claude-opus-4-5-thinking') return 'claude-opus-4-6-thinking';
-  if (modelName === 'claude-opus-4-6') return 'claude-opus-4-6-thinking';
+  // Claude 5.5 aliases & deprecated Claude 4.x fallback mapping -> Claude 5.5 (Thinking)
+  if (lower === 'claude-sonnet-5-5' || lower === 'claude-sonnet-5.5' || lower === 'claude-sonnet-5.5-thinking') {
+    return 'claude-sonnet-5-5-thinking';
+  }
+  if (lower === 'claude-opus-5-5' || lower === 'claude-opus-5.5' || lower === 'claude-opus-5.5-thinking') {
+    return 'claude-opus-5-5-thinking';
+  }
+  if (lower === 'claude-sonnet-4-5' || lower === 'claude-sonnet-4-5-thinking' || lower === 'claude-sonnet-4-6' || lower === 'claude-sonnet-4-6-thinking') {
+    return 'claude-sonnet-5-5-thinking';
+  }
+  if (lower === 'claude-opus-4-5' || lower === 'claude-opus-4-5-thinking' || lower === 'claude-opus-4-6' || lower === 'claude-opus-4-6-thinking' || lower === 'claude-opus-4-7' || lower === 'claude-opus-4-7-thinking') {
+    return 'claude-opus-5-5-thinking';
+  }
   if (modelName === 'gemini-2.5-flash-thinking') return 'gemini-2.5-flash';
   return modelName;
 }

@@ -84,7 +84,7 @@ const getModelCacheTTL = () => {
 let modelListCache = null;
 let modelListCacheTime = 0;
 
-// Default model list (used as fallback when upstream model API fails, and merged into /v1/models)
+// Default model list (currently supported Antigravity models, used as fallback and merged into /v1/models)
 // Frozen with Object.freeze to prevent accidental mutation and aid V8 optimization
 const DEFAULT_MODELS = Object.freeze([
   // Gemini 4 (Latest Frontier Models — upstream tier-suffixed IDs + bare aliases)
@@ -105,73 +105,49 @@ const DEFAULT_MODELS = Object.freeze([
   'gemini-4-hydrogen-medium',
   'gemini-4-hydrogen-low',
   'gemini-4-hydrogen',
-  // Gemini 3.8
+  // Gemini 3.8 & 3.5
   'gemini-3.8-flash-tiered',
   'gemini-3.8-flash',
-  'gemini-3.8-live',
-  'gemini-3.8-live-extended-thinking',
-  'gemini-3.8-flash-tts',
-  'gemini-3.8-flash-lite-tts',
-  // Gemini 3.6 & 3.5
-  'gemini-3.6-flash',
-  'gemini-3.5-flash',
   'gemini-3.5-flash-lite',
-  'gemini-3.5-transcribe',
-  'gemini-3.5-transcribe-live',
-  'gemini-3.5-live-translate-preview',
   // Gemini 3.1 & 3.0
-  'gemini-3.1-pro-preview',
   'gemini-3.1-pro-high',
   'gemini-3.1-pro-low',
   'gemini-3.1-flash-lite',
-  'gemini-3.1-flash-live-preview',
-  'gemini-3.1-flash-tts-preview',
-  'gemini-3-pro-preview',
-  'gemini-3-flash-preview',
+  'gemini-3-flash',
   // Gemini Image / Nano Banana Models
   'gemini-nano-banana-2.1',
+  'gemini-nano-banana-2.1-2K',
+  'gemini-nano-banana-2.1-4K',
   'gemini-3.1-flash-image',
   'gemini-3.1-flash-image-2K',
   'gemini-3.1-flash-image-4K',
-  'gemini-3.1-flash-lite-image',
-  'gemini-3.1-flash-lite-image-2K',
-  'gemini-3.1-flash-lite-image-4K',
-  'gemini-3-pro-image',
-  'gemini-3-pro-image-2K',
-  'gemini-3-pro-image-4K',
-  'gemini-2.5-flash-image',
-  // Gemini Omni Flash
-  'gemini-omni-1.2-flash',
-  'gemini-omni-1.1-flash',
   // Gemini 2.5
   'gemini-2.5-pro',
   'gemini-2.5-flash',
   'gemini-2.5-flash-thinking',
   'gemini-2.5-flash-lite',
-  'gemini-2.5-flash-native-audio-preview-12-2025',
-  'gemini-2.5-flash-preview-tts',
-  'gemini-2.5-pro-preview-tts',
-  // Gemini Specialized, Tool & Agent Models
-  'gemini-decision-1',
-  'gemini-embedding-2',
-  'gemini-embedding-001',
-  'gemini-robotics-er-2-preview',
-  'deep-research-preview-04-2026',
-  'deep-research-max-preview-04-2026',
-  'antigravity-preview-09-2026',
-  // Claude Models
-  'claude-opus-4-7',
-  'claude-opus-4-7-thinking',
+  // Claude 5.5 Models (Latest supported in Antigravity)
+  'claude-opus-5-5-thinking',
+  'claude-sonnet-5-5-thinking'
+]);
+
+// Models deprecated / removed from Google Antigravity
+const DEPRECATED_MODELS = Object.freeze(new Set([
+  'claude-opus-4-5',
+  'claude-opus-4-5-thinking',
   'claude-opus-4-6',
   'claude-opus-4-6-thinking',
+  'claude-opus-4-7',
+  'claude-opus-4-7-thinking',
+  'claude-sonnet-4-5',
+  'claude-sonnet-4-5-thinking',
   'claude-sonnet-4-6',
   'claude-sonnet-4-6-thinking',
-  // Other Models
+  'gpt-oss-120b-medium',
   'chat_20706',
   'rev19-uic3-1p',
-  'gpt-oss-120b-medium',
   'chat_23310'
-]);
+]));
 
 // Generate default model list response
 function getDefaultModelList() {
@@ -439,12 +415,14 @@ export async function getAvailableModels() {
   }
 
   const created = Math.floor(Date.now() / 1000);
-  const modelList = Object.keys(data.models || {}).map(id => ({
-    id,
-    object: 'model',
-    created,
-    owned_by: 'google'
-  }));
+  const modelList = Object.keys(data.models || {})
+    .filter(id => !DEPRECATED_MODELS.has(id.toLowerCase()))
+    .map(id => ({
+      id,
+      object: 'model',
+      created,
+      owned_by: 'google'
+    }));
 
   // Add default models if not present in the API response list
   const existingIds = new Set(modelList.map(m => m.id));
@@ -614,7 +592,7 @@ export async function generateImageForSD(requestBody, token) {
   return images;
 }
 
-export async function sendRecordTrajectoryAnalytics(token, num, trajectoryId, executionId, cascadeId, modelName = "claude-opus-4-6-thinking") {
+export async function sendRecordTrajectoryAnalytics(token, num, trajectoryId, executionId, cascadeId, modelName = "claude-opus-5-5-thinking") {
   const trajectorybody = generateTrajectorybody(num, trajectoryId, executionId, cascadeId, modelName, token);
   const headers = buildHeaders(token);
   headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(trajectorybody)));

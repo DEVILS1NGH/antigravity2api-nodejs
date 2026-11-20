@@ -420,6 +420,68 @@
                                 <div class="config-grid">
                                     <!-- Server Settings -->
                                     <div class="config-section" id="section-server">
+                                        <!-- Network Access & Credentials Card -->
+                                        <div class="server-access-card" id="serverAccessCard">
+                                            <div class="server-access-header">
+                                                <h4>🌐 Network Access &amp; Credentials</h4>
+                                                <span class="server-access-hint">Use this LAN URL to access from other devices (e.g., phone)</span>
+                                            </div>
+                                            <div class="server-access-grid">
+                                                <div class="server-access-item">
+                                                    <span class="server-access-label">Web UI (LAN)</span>
+                                                    <div class="server-access-value-row">
+                                                        <code id="serverWebUiUrl">Loading...</code>
+                                                        <button type="button" class="btn-icon-copy" onclick="copyServerInfoValue('serverWebUiUrl', 'Web UI URL')" title="Copy">📋</button>
+                                                    </div>
+                                                </div>
+                                                <div class="server-access-item">
+                                                    <span class="server-access-label">OpenAI / Claude API</span>
+                                                    <div class="server-access-value-row">
+                                                        <code id="serverOpenAiUrl">Loading...</code>
+                                                        <button type="button" class="btn-icon-copy" onclick="copyServerInfoValue('serverOpenAiUrl', 'OpenAI/Claude API URL')" title="Copy">📋</button>
+                                                    </div>
+                                                </div>
+                                                <div class="server-access-item">
+                                                    <span class="server-access-label">Gemini API</span>
+                                                    <div class="server-access-value-row">
+                                                        <code id="serverGeminiUrl">Loading...</code>
+                                                        <button type="button" class="btn-icon-copy" onclick="copyServerInfoValue('serverGeminiUrl', 'Gemini API URL')" title="Copy">📋</button>
+                                                    </div>
+                                                </div>
+                                                <div class="server-access-item">
+                                                    <span class="server-access-label">Gemini CLI API</span>
+                                                    <div class="server-access-value-row">
+                                                        <code id="serverGeminiCliUrl">Loading...</code>
+                                                        <button type="button" class="btn-icon-copy" onclick="copyServerInfoValue('serverGeminiCliUrl', 'Gemini CLI URL')" title="Copy">📋</button>
+                                                    </div>
+                                                </div>
+                                                <div class="server-access-item">
+                                                    <span class="server-access-label">Admin Username</span>
+                                                    <div class="server-access-value-row">
+                                                        <code id="serverAdminUsername">Loading...</code>
+                                                        <button type="button" class="btn-icon-copy" onclick="copyServerInfoValue('serverAdminUsername', 'Admin Username')" title="Copy">📋</button>
+                                                    </div>
+                                                </div>
+                                                <div class="server-access-item">
+                                                    <span class="server-access-label">Admin Password</span>
+                                                    <div class="server-access-value-row">
+                                                        <code id="serverAdminPassword" data-masked="false">Loading...</code>
+                                                        <button type="button" class="btn-icon-copy" onclick="toggleServerSecret('serverAdminPassword', this)" title="Hide/Show">👁️</button>
+                                                        <button type="button" class="btn-icon-copy" onclick="copyServerInfoValue('serverAdminPassword', 'Admin Password')" title="Copy">📋</button>
+                                                    </div>
+                                                </div>
+                                                <div class="server-access-item server-access-item-wide">
+                                                    <span class="server-access-label">API Key</span>
+                                                    <div class="server-access-value-row">
+                                                        <code id="serverApiKey" data-masked="false">Loading...</code>
+                                                        <button type="button" class="btn-icon-copy" onclick="toggleServerSecret('serverApiKey', this)" title="Hide/Show">👁️</button>
+                                                        <button type="button" class="btn-icon-copy" onclick="copyServerInfoValue('serverApiKey', 'API Key')" title="Copy">📋</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="server-access-extra-ips" id="serverExtraIps" style="display:none;"></div>
+                                        </div>
+
                                         <h4>🖥️ Server</h4>
                                         <div class="form-row-inline">
                                             <div class="form-group compact">

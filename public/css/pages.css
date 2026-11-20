@@ -2347,3 +2347,120 @@ button.loading::after {
     color: white;
     transform: scale(1.1);
 }
+
+
+/* ==================== Server Network Access & Credentials Card ==================== */
+.server-access-card {
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(16, 185, 129, 0.06));
+    border: 1.5px solid rgba(79, 70, 229, 0.25);
+    border-radius: 0.75rem;
+    padding: 0.9rem 1rem;
+    margin-bottom: 1.15rem;
+}
+
+.server-access-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.server-access-header h4 {
+    margin: 0 !important;
+    font-size: 0.95rem;
+}
+
+.server-access-hint {
+    font-size: 0.78rem;
+    color: var(--text-light, #64748b);
+}
+
+.server-access-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 0.6rem;
+}
+
+.server-access-item {
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.65rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.server-access-item-wide {
+    grid-column: 1 / -1;
+}
+
+@media (prefers-color-scheme: dark) {
+    .server-access-item {
+        background: rgba(15, 23, 42, 0.55);
+    }
+}
+
+.server-access-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-light, #64748b);
+}
+
+.server-access-value-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.server-access-value-row code {
+    flex: 1;
+    min-width: 0;
+    font-family: 'Ubuntu Mono', monospace;
+    font-size: 0.85rem;
+    word-break: break-all;
+    user-select: all;
+    color: var(--text, #1e293b);
+}
+
+@media (prefers-color-scheme: dark) {
+    .server-access-value-row code {
+        color: #f1f5f9;
+    }
+}
+
+.btn-icon-copy {
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid var(--border, #cbd5e1);
+    border-radius: 0.375rem;
+    padding: 0.18rem 0.42rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-icon-copy:hover {
+    background: rgba(79, 70, 229, 0.12);
+    border-color: var(--primary, #4f46e5);
+}
+
+.server-access-extra-ips {
+    margin-top: 0.65rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed var(--border, #cbd5e1);
+    font-size: 0.78rem;
+    line-height: 1.6;
+}
+
+.server-access-extra-ips .ip-iface {
+    color: var(--text-light, #64748b);
+    font-size: 0.72rem;
+}
