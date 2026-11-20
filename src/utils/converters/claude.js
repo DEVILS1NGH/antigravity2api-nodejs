@@ -139,7 +139,8 @@ function claudeMessageToAntigravity(claudeMessages, enableThinking, actualModelN
 
 export function generateClaudeRequestBody(claudeMessages, modelName, parameters, claudeTools, systemPrompt, token) {
   const enableThinking = isEnableThinking(modelName);
-  const actualModelName = modelMapping(modelName);
+  const requestedLevel = parameters?.thinking_level ?? parameters?.thinkingLevel ?? parameters?.reasoning_effort;
+  const actualModelName = modelMapping(modelName, requestedLevel);
   // Pass the user's system prompt directly and let buildSystemInstruction handle all merge logic,
   // including position configuration for official, proxy, and user prompts
 

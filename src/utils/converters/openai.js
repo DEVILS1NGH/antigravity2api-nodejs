@@ -116,7 +116,8 @@ function openaiMessageToAntigravity(openaiMessages, enableThinking, actualModelN
 
 export function generateRequestBody(openaiMessages, modelName, parameters, openaiTools, token) {
   const enableThinking = isEnableThinking(modelName);
-  const actualModelName = modelMapping(modelName);
+  const requestedLevel = parameters?.thinking_level ?? parameters?.thinkingLevel ?? parameters?.reasoning_effort;
+  const actualModelName = modelMapping(modelName, requestedLevel);
   const mergedSystemInstruction = extractSystemInstruction(openaiMessages);
 
   let filteredMessages = openaiMessages;

@@ -92,7 +92,7 @@ export function cleanParameters(obj) {
 // ==================== Model Mapping ====================
 // Map Anthropic official model names to Antigravity model names
 // Supports Claude Code and other clients that use official Anthropic model naming
-export function modelMapping(modelName) {
+export function modelMapping(modelName, requestedThinkingLevel = undefined) {
   // Dynamic matching for Anthropic official model name formats:
   // - claude-{type}-{major}-{minor}-{date} (e.g., claude-sonnet-4-5-20250929)
   // - claude-{type}-{major}-{date} (e.g., claude-sonnet-4-20250514)
@@ -135,6 +135,30 @@ export function modelMapping(modelName) {
     if (remainder.includes('opus')) return 'claude-opus-4-5-thinking';
     return 'claude-sonnet-4-5';
   }
+
+  // Gemini 4 Antigravity upstream mapping:
+  // Antigravity's v1internal backend requires tier/variant-suffixed IDs
+  // (e.g., gemini-4-carbon-high, gemini-4-hydrogen-sonar) and returns 404 for bare names.
+  const lower = modelName.toLowerCase();
+  const normalizedLevel = typeof requestedThinkingLevel === 'string'
+    ? requestedThinkingLevel.trim().toLowerCase()
+    : undefined;
+  const validTier = ['low', 'medium', 'high', 'xhigh'].includes(normalizedLevel)
+    ? normalizedLevel
+    : undefined;
+
+  if (lower === 'gemini-4-hydrogen') {
+    return validTier ? `gemini-4-hydrogen-${validTier}` : 'gemini-4-hydrogen-sonar';
+  }
+  if (lower === 'gemini-4-carbon' || lower === 'gemini-4-argon' || lower === 'gemini-4-neon') {
+    return `${lower}-${validTier || 'medium'}`;
+  }
+
+  // Gemini 3.8 / 3.1 / 3.0 bare alias mapping to Antigravity upstream model IDs
+  if (lower === 'gemini-3.8-flash') return 'gemini-3.8-flash-tiered';
+  if (lower === 'gemini-3.1-pro' || lower === 'gemini-3.1-pro-preview') return 'gemini-3.1-pro-high';
+  if (lower === 'gemini-3-pro' || lower === 'gemini-3-pro-preview') return 'gemini-3.1-pro-high';
+  if (lower === 'gemini-3-flash-preview') return 'gemini-3-flash';
 
   // Original logic (kept for backward compatibility)
   if (modelName === 'claude-sonnet-4-5-thinking') return 'claude-sonnet-4-5';

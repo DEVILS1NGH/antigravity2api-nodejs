@@ -87,12 +87,26 @@ let modelListCacheTime = 0;
 // Default model list (used as fallback when upstream model API fails, and merged into /v1/models)
 // Frozen with Object.freeze to prevent accidental mutation and aid V8 optimization
 const DEFAULT_MODELS = Object.freeze([
-  // Gemini 4 (Latest Frontier Models)
+  // Gemini 4 (Latest Frontier Models — upstream tier-suffixed IDs + bare aliases)
+  'gemini-4-carbon-high',
+  'gemini-4-carbon-medium',
+  'gemini-4-carbon-low',
   'gemini-4-carbon',
+  'gemini-4-argon-high',
+  'gemini-4-argon-medium',
+  'gemini-4-argon-low',
   'gemini-4-argon',
+  'gemini-4-neon-high',
+  'gemini-4-neon-medium',
+  'gemini-4-neon-low',
   'gemini-4-neon',
+  'gemini-4-hydrogen-sonar',
+  'gemini-4-hydrogen-high',
+  'gemini-4-hydrogen-medium',
+  'gemini-4-hydrogen-low',
   'gemini-4-hydrogen',
   // Gemini 3.8
+  'gemini-3.8-flash-tiered',
   'gemini-3.8-flash',
   'gemini-3.8-live',
   'gemini-3.8-live-extended-thinking',

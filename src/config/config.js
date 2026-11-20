@@ -287,8 +287,26 @@ const DEFAULT_API_CONFIGS = {
 // Default fallback order
 const DEFAULT_UPSTREAM_CANDIDATES = ['production', 'daily', 'sandbox'];
 
-// Default IDE version (used when no version is recorded in config.json)
-const DEFAULT_IDE_VERSION = '1.22.2';
+// Minimum IDE version (>= 2.23.0 required by Antigravity Hub to expose Gemini 4 models)
+const DEFAULT_IDE_VERSION = '2.25.0';
+
+/**
+ * Compare two semantic version strings
+ * @param {string} a - Version a
+ * @param {string} b - Version b
+ * @returns {number} 1 if a > b, -1 if a < b, 0 if equal
+ */
+function compareVersions(a, b) {
+  const pa = String(a || '').split('.').map(Number);
+  const pb = String(b || '').split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = pa[i] || 0;
+    const nb = pb[i] || 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
+  }
+  return 0;
+}
 
 const DEFAULT_API_UNLEASH = {
   register: "https://antigravity-unleash.goog/api/client/register",
@@ -320,7 +338,10 @@ function getActiveApiConfig(jsonConfig, upstreamCfg) {
   const upstreamEndpoint = upstreamCfg.api?.[apiUse] || {};
   const hardcodedEndpoint = DEFAULT_API_CONFIGS[apiUse] || DEFAULT_API_CONFIGS.production;
   const unleash = upstreamCfg.api?.unleash || DEFAULT_API_UNLEASH;
-  const ideVersion = jsonConfig.api?.version || DEFAULT_IDE_VERSION;
+  const configuredVersion = jsonConfig.api?.version;
+  const ideVersion = (configuredVersion && compareVersions(configuredVersion, DEFAULT_IDE_VERSION) > 0)
+    ? configuredVersion
+    : DEFAULT_IDE_VERSION;
 
   // Build upstream fallback candidates: user selection first, followed by remaining defaults (deduplicated)
   const defaultCandidateNames = upstreamCfg.upstreamCandidates || DEFAULT_UPSTREAM_CANDIDATES;
@@ -473,24 +494,6 @@ const config = buildConfig(jsonConfig, upstreamConfig);
 
 // Version update check endpoint
 const VERSION_CHECK_URL = 'https://antigravity-auto-updater-974169037036.us-central1.run.app/releases';
-
-/**
- * Compare two semantic version strings
- * @param {string} a - Version a
- * @param {string} b - Version b
- * @returns {number} 1 if a > b, -1 if a < b, 0 if equal
- */
-function compareVersions(a, b) {
-  const pa = a.split('.').map(Number);
-  const pb = b.split('.').map(Number);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const na = pa[i] || 0;
-    const nb = pb[i] || 0;
-    if (na > nb) return 1;
-    if (na < nb) return -1;
-  }
-  return 0;
-}
 
 /**
  * Check for and apply version updates

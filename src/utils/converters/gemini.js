@@ -140,7 +140,9 @@ function processModelThoughts(content, reasoningSignature, reasoningContent, too
 
 export function generateGeminiRequestBody(geminiBody, modelName, token) {
   const enableThinking = isEnableThinking(modelName);
-  const actualModelName = modelMapping(modelName);
+  const requestedLevel = geminiBody?.generationConfig?.thinkingConfig?.thinkingLevel ??
+    geminiBody?.generationConfig?.thinkingConfig?.thinking_level;
+  const actualModelName = modelMapping(modelName, requestedLevel);
   const request = JSON.parse(JSON.stringify(geminiBody));
 
   if (request.contents && Array.isArray(request.contents)) {
